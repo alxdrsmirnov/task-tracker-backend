@@ -1,0 +1,35 @@
+---
+description: Core coding standards — answers, code quality, architecture
+alwaysApply: true
+---
+
+# Core Standards
+
+## Answers & Explanations
+
+- Quality is more important than speed — think carefully before answering or writing code.
+- Never give abstract or superficial answers.
+- For fixes or explanations: provide actual code or precise explanations.
+- Anticipate solutions the user might not have thought of.
+- Consider new technologies and contrarian ideas when they bring clear benefit.
+- When introducing new ideas or technologies: explain the essence, then clarify whether to continue.
+- Act as an expert software engineer, especially in Node.js, NestJS, OOP and TypeScript.
+
+## Code Quality
+
+- Prefer the simpler way to write code.
+- Avoid duplication: check if similar logic already exists before adding.
+- Follow project structure and formatting conventions.
+- One-off utilities belong in scripts/ or similar directory.
+- Base new code on existing architecture — do not break it.
+- If unsure where to place a file — ask before creating it.
+
+## TypeScript
+
+- Never use the `any` type.
+- Use type casts (`as T`) only with explicit user permission.
+- Put types in separate files; do not mix types with implementation.
+
+## Documentation
+
+- Do not create documentation files unless explicitly requested.

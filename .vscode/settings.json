@@ -1,0 +1,120 @@
+{
+  // ========== 💻 СИСТЕМНЫЕ НАСТРОЙКИ ==========
+  "window.zoomLevel": 1, // +10% масштаб интерфейса
+
+  // ========== 🖋️ ШРИФТ И ВЕРСТКА ==========
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+  "editor.fontLigatures": false,
+  "editor.fontSize": 13, // оптимально для 2K монитора (27–32")
+  "editor.lineHeight": 22, // «воздушность» между строками
+  "editor.letterSpacing": 0.33, // лёгкий зазор между символами
+  "editor.wordWrap": "on", // перенос длинных строк
+  "editor.renderWhitespace": "none", // не показывать пробелы
+  "editor.renderControlCharacters": false,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 250,
+
+  // ========== 🎨 ТЕМА И ИКОНКИ ==========
+  "workbench.colorTheme": "Darcula Stormy",
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.startupEditor": "none", // пустой экран при старте
+  "workbench.tree.indent": 18,
+  "workbench.tree.renderIndentGuides": "always",
+
+  "workbench.colorCustomizations": {
+    "[Darcula Stormy]": {
+      "sideBar.background": "#222222",
+      "activityBar.background": "#181818",
+      "titleBar.activeBackground": "#202020",
+      "titleBar.inactiveBackground": "#202020",
+      "editor.background": "#1c1c1c",
+      "editorGroupHeader.tabsBackground": "#202020",
+      "tab.activeBackground": "#2b2b2b",
+      "tab.inactiveBackground": "#1f1f1f",
+      "statusBar.background": "#181818",
+      "statusBar.noFolderBackground": "#181818",
+      "statusBar.debuggingBackground": "#303030",
+      "sideBarSectionHeader.background": "#1f1f1f",
+      "panel.background": "#202020",
+
+      // 🔹 Темнее область номеров строк
+      "editorLineNumber.foreground": "#4b4b4b",
+      "editorGutter.background": "#1a1a1a",
+
+      // 🔴 Брейкпоинты — яркие и заметные
+      "debugIcon.breakpointForeground": "#ff3333",
+      "debugIcon.breakpointDisabledForeground": "#848484",
+      "debugIcon.breakpointUnverifiedForeground": "#ffcc00",
+      "editorGutter.modifiedBackground": "#3a7fdb",
+      "editorGutter.addedBackground": "#5fb345",
+      "editorGutter.deletedBackground": "#f14c4c"
+    }
+  },
+
+  // ========== 🧭 ИНТЕРФЕЙС И НАВИГАЦИЯ ==========
+  "editor.minimap.enabled": false,
+  "editor.cursorBlinking": "smooth", // плавный курсор
+  "editor.smoothScrolling": true,
+  "editor.scrollBeyondLastLine": false,
+  "editor.renderLineHighlight": "none", // отключаем подсветку строки
+  "editor.lineNumbers": "on", // показывать номера строк
+  "editor.selectionHighlight": true,
+  "editor.occurrencesHighlight": "off",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.glyphMargin": true,
+  "breadcrumbs.enabled": true,
+
+  // 🔹 Убирает вертикальные линии, обводящие блоки {}
+  "editor.guides.bracketPairs": false,
+  "editor.guides.bracketPairsHorizontal": false,
+
+  // ========== ⚡ УДОБСТВО И ПРОИЗВОДИТЕЛЬНОСТЬ ==========
+  "explorer.compactFolders": false, // не сворачивать одноуровневые папки
+
+  // Группировка файлов в Explorer (package.json, tsconfig)
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json, pnpm-lock.yaml, yarn.lock, bun.lock, bun.lockb, .nvmrc, .node-version, .npmrc, .yarnrc*, .editorconfig, .prettier*, .eslint*, eslint.config.*",
+    "tsconfig.json": "tsconfig*.tsbuildinfo, tsconfig.*.json"
+  },
+  "terminal.integrated.fontSize": 13, // немного увеличен терминал
+  "terminal.integrated.lineHeight": 1.2,
+  "terminal.integrated.cursorBlinking": true,
+  "editor.inlineSuggest.enabled": true, // умные подсказки
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  // === Prettier — автоформатирование ===
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": false,
+
+  // Указываем Prettier для конкретных языков
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[markdown]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // === Дополнительно ===
+  // Обязательно использовать локальный конфиг проекта
+  "prettier.requireConfig": true,
+
+  // Подсказки и статус внизу
+  "prettier.enableDebugLogs": false,
+
+  // ========== 🧩 ДОПОЛНИТЕЛЬНО (требует Customize UI) ==========
+  // Позволяет отдельно регулировать размер текста в боковых панелях и статус-баре
+  "customizeUI.fontSizeMap": {
+    "SideBar": 15, // размер текста в сайдбаре (Explorer, Extensions и т.п.)
+    "ActivityBar": 14, // левая вертикальная панель с иконками
+    "StatusBar": 14, // нижняя строка состояния
+    "Panel": 15, // панель AI, терминал, вывод и пр.
+    "Editor": 16
+  }
+}
+
