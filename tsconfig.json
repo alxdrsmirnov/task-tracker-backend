@@ -1,25 +1,42 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "incremental": true,
-    "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "module": "nodenext", // Модульная система Node.js (ESM + CommonJS)
+    "moduleResolution": "nodenext", // Разрешение модулей по правилам Node.js
+    "resolvePackageJsonExports": true, // Учитывать поле exports в package.json
+
+    "target": "ES2023", // Целевая версия ECMAScript
+    "sourceMap": true, // Генерировать source maps для отладки
+    "outDir": "./dist", // Папка для скомпилированных файлов
+    "baseUrl": "./", // Базовая директория для путей
+
+    "esModuleInterop": true, // Совместимость import/require с CommonJS
+    "allowSyntheticDefaultImports": true, // Разрешить import X from '...' для модулей без default
+
+    "isolatedModules": true, // Каждый файл компилируется отдельно (для Babel/esbuild)
+    "declaration": true, // Генерировать .d.ts файлы
+    "removeComments": true, // Удалять комментарии из скомпилированного кода
+
+    "emitDecoratorMetadata": true, // Метаданные типов для декораторов (DI в NestJS)
+    "experimentalDecorators": true, // Поддержка декораторов @Injectable, @Controller и т.д.
+
+    "incremental": true, // Инкрементальная компиляция (быстрее повторные сборки)
+    "skipLibCheck": true, // Не проверять типы в .d.ts библиотек
+
+    "strict": true, // Включить все строгие проверки (часть переопределена ниже)
+    // "strictNullChecks": false, // Строгая проверка null/undefined
+    // "noImplicitAny": false, // Запрет неявного типа any
+    // "strictBindCallApply": false, // Строгая проверка аргументов в bind/call/apply
+    // "strictFunctionTypes": true, // Строгая проверка типов функций
+    "strictPropertyInitialization": false, // Обязательная инициализация свойств в конструкторе
+    // "noImplicitThis": true, // Запрет неявного this
+    // "useUnknownInCatchVariables": true, // В catch переменная имеет тип unknown вместо any
+    // "noImplicitReturns": true, // Все ветки функции должны возвращать значение
+    // "noFallthroughCasesInSwitch": true, // Запрет fallthrough в switch (нужен break)
+    // "noUncheckedIndexedAccess": false, // obj[key] возвращает T | undefined
+    // "noImplicitOverride": true, // Требовать override при переопределении методов
+    // "noPropertyAccessFromIndexSignature": false, // Запрет obj.prop для индексной сигнатуры
+    // "exactOptionalPropertyTypes": false, // Строгая семантика опциональных свойств
+
+    "forceConsistentCasingInFileNames": true // Единый регистр путей (Linux/macOS/Windows)
   }
 }
