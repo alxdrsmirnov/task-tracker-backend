@@ -75,7 +75,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "package.json": "package-lock.json, pnpm-lock.yaml, yarn.lock, bun.lock, bun.lockb, .nvmrc, .node-version, .npmrc, .yarnrc*, .editorconfig, .prettier*, .eslint*, eslint.config.*",
+    "package.json": "package-lock.json, pnpm-lock.yaml, yarn.lock, bun.lock, bun.lockb, .nvmrc, .node-version, .npmrc, .yarnrc*, .editorconfig, .prettier*, .eslint*, eslint.config.*, prisma.config.ts, nest-cli.json",
     "tsconfig.json": "tsconfig*.tsbuildinfo, tsconfig.*.json"
   },
   "terminal.integrated.fontSize": 13, // немного увеличен терминал

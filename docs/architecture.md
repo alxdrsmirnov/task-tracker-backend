@@ -4,14 +4,14 @@
 
 - **Модульная архитектура**: каждый модуль содержит всё о себе — domain, infra, use cases, ws-handler
 - **Доменные интерфейсы + операции**: модели — интерфейсы в `domain/models/`, бизнес-логика — чистые функции в `domain/operations/`. ORM-entity реализует интерфейс модели. Маппинг не нужен. Use case работает только с абстракциями из `domain/`
-- **DIP**: интерфейсы принадлежат потребителю (modules/*/domain/), реализации (infra/typeorm/) импортируют их через `import type`
+- **DIP**: интерфейсы принадлежат потребителю (modules/*/domain/), реализации (infra/prisma/) импортируют их через `import type`
 - **Full WebSocket**: один тонкий gateway-роутер, делегирует в ws-handler каждого модуля
 - **Real-time**: изменения задач, комментарии, уведомления — всё через WebSocket
 
 ## Технологический стек
 
 - NestJS + TypeScript
-- PostgreSQL + TypeORM (миграции, `synchronize: false`)
+- PostgreSQL + Prisma (миграции, `prisma migrate`)
 - Redis (кэш, pub/sub для WebSocket scaling между инстансами)
 - BullMQ (очереди: уведомления, email, тяжёлые операции)
 - WebSocket через `@nestjs/websockets` + `socket.io`
@@ -24,9 +24,8 @@
 
 - Use case импортирует ТОЛЬКО из `domain/` — модели (интерфейсы), операции (функции), репозитории (интерфейсы), исключения. Никогда из `infra/`
 - Use case МОЖЕТ инжектить репозитории/gateway своего и чужого модуля по интерфейсу (через DI-токен)
-- infra/typeorm/entities/ реализует интерфейсы моделей из domain/models/ (`implements Task`)
-- infra/typeorm/repositories/ реализует интерфейсы из domain/repositories/ через `import type` (DIP)
-- infra/typeorm/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-handlers или DTO
+- infra/prisma/ — Prisma-модели и репозитории; репозитории реализуют интерфейсы из domain/repositories/ через `import type` (DIP)
+- infra/prisma/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-handlers или DTO
 - infra/ (глобальная) — подключения к внешним сервисам (БД, Redis, очереди, S3, mail), импортируется в app.module.ts
 - common/ — шарится между модулями (guards, pipes, decorators, utils, types)
 - Кросс-модульный доступ к данным: модуль импортирует `*.infra.module.ts` другого модуля
@@ -103,8 +102,8 @@ src/
 ├── app.module.ts
 │
 ├── infra/                                   # глобальные подключения к внешним сервисам
-│   ├── database/
-│   │   └── database.module.ts              # TypeORM forRoot
+│   ├── prisma/
+│   │   └── prisma.module.ts               # Prisma forRoot
 │   ├── redis/
 │   │   ├── redis.module.ts
 │   │   └── redis.service.ts
