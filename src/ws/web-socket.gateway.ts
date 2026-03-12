@@ -8,7 +8,7 @@ import {
 import { Server, Socket } from 'socket.io'
 
 @WsGateway({
-  namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123, workspace-xyz789
+  namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
   cors: true
 })
 export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
