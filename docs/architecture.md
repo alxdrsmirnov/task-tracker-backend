@@ -2,10 +2,10 @@
 
 ## Принципы
 
-- **Модульная архитектура**: каждый модуль содержит всё о себе — domain, infra, use cases, ws-handler
-- **Доменные интерфейсы + операции**: модели — интерфейсы в `domain/models/`, бизнес-логика — чистые функции в `domain/operations/`. ORM-entity реализует интерфейс модели. Маппинг не нужен. Use case работает только с абстракциями из `domain/`
+- **Модульная архитектура**: каждый модуль содержит всё о себе — domain, infra, use cases, ws-контроллер
+- **Доменные интерфейсы + операции**: модели — интерфейсы в `domain/models/`, бизнес-логика — чистые функции в `domain/operations/`. Prisma-генерированные типы структурно совместимы с доменными интерфейсами — маппинг не нужен. Use case работает только с абстракциями из `domain/`
 - **DIP**: интерфейсы принадлежат потребителю (modules/*/domain/), реализации (infra/prisma/) импортируют их через `import type`
-- **Full WebSocket**: один тонкий gateway-роутер, делегирует в ws-handler каждого модуля
+- **Full WebSocket**: один тонкий gateway-роутер, делегирует в ws-контроллер каждого модуля. REST — только auth и file upload
 - **Real-time**: изменения задач, комментарии, уведомления — всё через WebSocket
 
 ## Технологический стек
@@ -24,12 +24,12 @@
 
 - Use case импортирует ТОЛЬКО из `domain/` — модели (интерфейсы), операции (функции), репозитории (интерфейсы), исключения. Никогда из `infra/`
 - Use case МОЖЕТ инжектить репозитории/gateway своего и чужого модуля по интерфейсу (через DI-токен)
-- infra/prisma/ — Prisma-модели и репозитории; репозитории реализуют интерфейсы из domain/repositories/ через `import type` (DIP)
-- infra/prisma/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-handlers или DTO
-- infra/ (глобальная) — подключения к внешним сервисам (БД, Redis, очереди, S3, mail), импортируется в app.module.ts
-- common/ — шарится между модулями (guards, pipes, decorators, utils, types)
+- modules/*/infra/prisma/ — репозитории; реализуют интерфейсы из domain/repositories/ через `import type` (DIP). Модели — в common/infra/prisma/schema.prisma
+- modules/*/infra/prisma/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-контроллеры или DTO
+- common/infra/prisma/ — Prisma schema, client, миграции; импортируется в app.module.ts
+- common/ — шарится между модулями (pipes, decorators, utils, types)
 - Кросс-модульный доступ к данным: модуль импортирует `*.infra.module.ts` другого модуля
-- Gateway — тонкий роутер, не содержит логики, делегирует в ws-handler модулей
+- Gateway — тонкий роутер, не содержит логики, делегирует в ws-контроллер модулей
 
 ## Схема БД
 
@@ -42,8 +42,9 @@ workspaces
 ├── id (uuid), name, slug
 ├── created_by (-> users), created_at
 
-workspace_members
-├── workspace_id (-> workspaces), user_id (-> users)
+workspace_members                          — M2M junction: users <-> workspaces
+├── workspace_id (-> workspaces) ┐ PK
+├── user_id (-> users)           ┘
 ├── role (owner / admin / member), joined_at
 
 projects
@@ -58,17 +59,22 @@ sections
 ├── created_at
 
 tasks
-├── id (uuid), project_id (-> projects), section_id (-> sections)
+├── id (uuid)
 ├── parent_task_id (-> tasks, nullable) — подзадачи
 ├── title, description (text)
 ├── status (open / in_progress / completed)
 ├── priority (none / low / medium / high / urgent)
 ├── assignee_id (-> users, nullable)
-├── position (float) — порядок в секции (fractional indexing)
 ├── due_date (timestamptz, nullable)
 ├── completed_at (timestamptz, nullable)
 ├── created_by (-> users)
 ├── created_at, updated_at
+
+project_tasks                              — M2M junction: projects <-> tasks
+├── project_id (-> projects) ┐ PK
+├── task_id (-> tasks)       ┘
+├── section_id (-> sections, nullable) — позиция задачи в конкретном проекте
+├── position (float) — порядок внутри секции (fractional indexing)
 
 comments
 ├── id (uuid), task_id (-> tasks), user_id (-> users)
@@ -94,6 +100,85 @@ notifications
 ├── created_at
 ```
 
+### ER-диаграмма
+
+```mermaid
+erDiagram
+    users ||--o{ workspace_members : ""
+    workspaces ||--o{ workspace_members : ""
+    users ||--o{ workspaces : "created_by"
+    workspaces ||--o{ projects : "workspace_id"
+    users ||--o{ projects : "created_by"
+    projects ||--o{ sections : "project_id"
+    projects ||--o{ project_tasks : ""
+    tasks ||--o{ project_tasks : ""
+    sections ||--o{ project_tasks : "section_id"
+    tasks ||--o{ tasks : "parent_task_id"
+    users ||--o{ tasks : "assignee_id"
+    users ||--o{ tasks : "created_by"
+    tasks ||--o{ comments : "task_id"
+    users ||--o{ comments : "user_id"
+    tasks ||--o{ attachments : "task_id"
+    users ||--o{ attachments : "user_id"
+    tasks ||--o{ activities : "task_id"
+    users ||--o{ activities : "user_id"
+    users ||--o{ notifications : "user_id"
+
+    users {
+        uuid id PK
+        varchar email UK
+    }
+    workspaces {
+        uuid id PK
+        uuid created_by FK
+    }
+    workspace_members {
+        uuid workspace_id PK_FK
+        uuid user_id PK_FK
+        enum role
+    }
+    projects {
+        uuid id PK
+        uuid workspace_id FK
+        uuid created_by FK
+    }
+    sections {
+        uuid id PK
+        uuid project_id FK
+    }
+    tasks {
+        uuid id PK
+        uuid parent_task_id FK
+        uuid assignee_id FK
+        uuid created_by FK
+    }
+    project_tasks {
+        uuid project_id PK_FK
+        uuid task_id PK_FK
+        uuid section_id FK
+        float position
+    }
+    comments {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+    }
+    attachments {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+    }
+    activities {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+    }
+    notifications {
+        uuid id PK
+        uuid user_id FK
+    }
+```
+
 ## Структура папок
 
 ```
@@ -101,49 +186,35 @@ src/
 ├── main.ts
 ├── app.module.ts
 │
-├── infra/                                   # глобальные подключения к внешним сервисам
-│   ├── prisma/
-│   │   └── prisma.module.ts               # Prisma forRoot
-│   ├── redis/
-│   │   ├── redis.module.ts
-│   │   └── redis.service.ts
-│   ├── queue/
-│   │   └── queue.module.ts                 # BullMQ forRoot
-│   ├── storage/
-│   │   ├── storage.module.ts
-│   │   └── s3.service.ts
-│   └── mail/
-│       ├── mail.module.ts
-│       └── mail.service.ts
-│
 ├── common/                                  # общее для всех модулей
+│   ├── infra/
+│   │   └── prisma/
+│   │       ├── schema.prisma
+│   │       ├── prisma.module.ts             # Prisma forRoot
+│   │       └── prisma.service.ts
 │   ├── decorators/
 │   │   ├── current-user.decorator.ts
 │   │   └── workspace-roles.decorator.ts
 │   ├── filters/
-│   │   └── http-exception.filter.ts
-│   ├── guards/
-│   │   ├── jwt-auth.guard.ts
-│   │   ├── ws-auth.guard.ts
-│   │   ├── workspace-member.guard.ts
-│   │   └── project-access.guard.ts
-│   ├── pipes/
-│   │   └── validation.pipe.ts
+│   │   ├── http-exception.filter.ts
+│   │   └── ws-exception.filter.ts
+│   └── pipes/
+│       └── validation.pipe.ts
 │   ├── utils/
 │   │   └── pagination.ts
 │   └── types/
 │       ├── common.types.ts                 # PaginatedResult, New, Loaded
 │       └── enums.ts
 │
-├── gateway/
-│   ├── gateway.module.ts
-│   └── app.gateway.ts                      # тонкий WS роутер
+├── ws/
+│   ├── web-socket.module.ts
+│   └── web-socket.gateway.ts               # тонкий WS роутер
 │
 └── modules/
     │
     ├── auth/
     │   ├── auth.module.ts
-    │   ├── auth.controller.ts
+    │   ├── auth.http.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -159,11 +230,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── auth.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   └── refresh-token.entity.ts
-    │   │       └── repositories/
-    │   │           └── refresh-token.repository.ts
+    │   │   └── prisma/
+    │   │       └── refresh-token.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── register.case.ts
@@ -184,7 +252,7 @@ src/
     │
     ├── user/
     │   ├── user.module.ts
-    │   ├── user.controller.ts
+    │   ├── user.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -197,11 +265,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── user.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   └── user.entity.ts
-    │   │       └── repositories/
-    │   │           └── user.repository.ts
+    │   │   └── prisma/
+    │   │       └── user.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── get-profile.case.ts
@@ -214,8 +279,7 @@ src/
     │
     ├── workspace/
     │   ├── workspace.module.ts
-    │   ├── workspace.controller.ts
-    │   ├── workspace.ws-handler.ts
+    │   ├── workspace.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -234,13 +298,9 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── workspace.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   ├── workspace.entity.ts
-    │   │       │   └── workspace-member.entity.ts
-    │   │       └── repositories/
-    │   │           ├── workspace.repository.ts
-    │   │           └── workspace-member.repository.ts
+    │   │   └── prisma/
+    │   │       ├── workspace.repository.ts
+    │   │       └── workspace-member.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── create-workspace.case.ts
@@ -261,8 +321,7 @@ src/
     │
     ├── project/
     │   ├── project.module.ts
-    │   ├── project.controller.ts
-    │   ├── project.ws-handler.ts
+    │   ├── project.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -278,13 +337,9 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── project.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   ├── project.entity.ts
-    │   │       │   └── section.entity.ts
-    │   │       └── repositories/
-    │   │           ├── project.repository.ts
-    │   │           └── section.repository.ts
+    │   │   └── prisma/
+    │   │       ├── project.repository.ts
+    │   │       └── section.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── create-project.case.ts
@@ -307,8 +362,7 @@ src/
     │
     ├── task/
     │   ├── task.module.ts
-    │   ├── task.controller.ts
-    │   ├── task.ws-handler.ts
+    │   ├── task.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -324,11 +378,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── task.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   └── task.entity.ts
-    │   │       └── repositories/
-    │   │           └── task.repository.ts
+    │   │   └── prisma/
+    │   │       └── task.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── create-task.case.ts
@@ -352,8 +403,7 @@ src/
     │
     ├── comment/
     │   ├── comment.module.ts
-    │   ├── comment.controller.ts
-    │   ├── comment.ws-handler.ts
+    │   ├── comment.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -366,11 +416,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── comment.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   └── comment.entity.ts
-    │   │       └── repositories/
-    │   │           └── comment.repository.ts
+    │   │   └── prisma/
+    │   │       └── comment.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── create-comment.case.ts
@@ -385,8 +432,7 @@ src/
     │
     ├── notification/
     │   ├── notification.module.ts
-    │   ├── notification.controller.ts
-    │   ├── notification.ws-handler.ts
+    │   ├── notification.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -398,11 +444,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── notification.infra.module.ts
-    │   │   ├── typeorm/
-    │   │   │   ├── entities/
-    │   │   │   │   └── notification.entity.ts
-    │   │   │   └── repositories/
-    │   │   │       └── notification.repository.ts
+    │   │   ├── prisma/
+    │   │   │   └── notification.repository.ts
     │   │   │
     │   │   └── queue/
     │   │       ├── notification.producer.ts
@@ -420,7 +463,7 @@ src/
     │
     ├── activity/
     │   ├── activity.module.ts
-    │   ├── activity.controller.ts
+    │   ├── activity.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -432,11 +475,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── activity.infra.module.ts
-    │   │   └── typeorm/
-    │   │       ├── entities/
-    │   │       │   └── activity.entity.ts
-    │   │       └── repositories/
-    │   │           └── activity.repository.ts
+    │   │   └── prisma/
+    │   │       └── activity.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── list-task-activity.case.ts
@@ -448,7 +488,7 @@ src/
     │
     ├── file/
     │   ├── file.module.ts
-    │   ├── file.controller.ts
+    │   ├── file.http.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -464,11 +504,8 @@ src/
     │   │
     │   ├── infra/
     │   │   ├── file.infra.module.ts
-    │   │   ├── typeorm/
-    │   │   │   ├── entities/
-    │   │   │   │   └── attachment.entity.ts
-    │   │   │   └── repositories/
-    │   │   │       └── attachment.repository.ts
+    │   │   ├── prisma/
+    │   │   │   └── attachment.repository.ts
     │   │   │
     │   │   └── s3/
     │   │       └── s3.gateway.ts            # implements StorageGateway
@@ -484,7 +521,7 @@ src/
     │
     └── search/
         ├── search.module.ts
-        ├── search.controller.ts
+        ├── search.ws.controller.ts
         │
         ├── use-cases/
         │   ├── search-tasks.case.ts
@@ -499,64 +536,64 @@ src/
 ### Gateway — тонкий роутер
 
 ```typescript
-// gateway/app.gateway.ts
+// ws/web-socket.gateway.ts
 @WebSocketGateway({ cors: true })
 export class AppGateway {
   constructor(
-    private readonly taskWsHandler: TaskWsHandler,
-    private readonly commentWsHandler: CommentWsHandler,
-    private readonly notificationWsHandler: NotificationWsHandler,
-    private readonly projectWsHandler: ProjectWsHandler,
-    private readonly workspaceWsHandler: WorkspaceWsHandler,
+    private readonly taskWsController: TaskWsController,
+    private readonly commentWsController: CommentWsController,
+    private readonly notificationWsController: NotificationWsController,
+    private readonly projectWsController: ProjectWsController,
+    private readonly workspaceWsController: WorkspaceWsController,
   ) {}
 
   // Подписка на проект (все участники получают обновления задач)
   @SubscribeMessage('project:join')
   joinProject(client: Socket, projectId: string) {
-    return this.projectWsHandler.join(client, projectId);
+    return this.projectWsController.join(client, projectId);
   }
 
   @SubscribeMessage('project:leave')
   leaveProject(client: Socket, projectId: string) {
-    return this.projectWsHandler.leave(client, projectId);
+    return this.projectWsController.leave(client, projectId);
   }
 
   // Задачи
   @SubscribeMessage('task:create')
-  createTask(client: Socket, data: any) {
-    return this.taskWsHandler.create(client, data);
+  createTask(client: Socket, data: CreateTaskDto) {
+    return this.taskWsController.create(client, data);
   }
 
   @SubscribeMessage('task:update')
-  updateTask(client: Socket, data: any) {
-    return this.taskWsHandler.update(client, data);
+  updateTask(client: Socket, data: UpdateTaskDto) {
+    return this.taskWsController.update(client, data);
   }
 
   @SubscribeMessage('task:move')
-  moveTask(client: Socket, data: any) {
-    return this.taskWsHandler.move(client, data);
+  moveTask(client: Socket, data: MoveTaskDto) {
+    return this.taskWsController.move(client, data);
   }
 
   // Комментарии
   @SubscribeMessage('comment:create')
-  createComment(client: Socket, data: any) {
-    return this.commentWsHandler.create(client, data);
+  createComment(client: Socket, data: CreateCommentDto) {
+    return this.commentWsController.create(client, data);
   }
 
   // Уведомления
   @SubscribeMessage('notification:mark-read')
-  markNotificationRead(client: Socket, data: any) {
-    return this.notificationWsHandler.markRead(client, data);
+  markNotificationRead(client: Socket, data: MarkNotificationReadDto) {
+    return this.notificationWsController.markRead(client, data);
   }
 }
 ```
 
-### WS Handler — делегат в модуле
+### WS Controller — делегат в модуле
 
 ```typescript
-// modules/task/task.ws-handler.ts
+// modules/task/task.ws.controller.ts
 @Injectable()
-export class TaskWsHandler {
+export class TaskWsController {
   constructor(
     private readonly createTask: CreateTask,
     private readonly updateTask: UpdateTask,
@@ -592,7 +629,7 @@ export class TaskWsHandler {
 ### Real-time поток событий
 
 ```
-User Action → WS Gateway → WS Handler → Use Case → Repository (save)
+User Action → WS Gateway → WS Controller → Use Case → Repository (save)
                                               ↓
                                         EventEmitter
                                        ↙     ↓      ↘
@@ -644,7 +681,7 @@ async onCommentCreated(payload: CommentCreatedPayload) {
 ## Доменные модели — интерфейсы + операции
 
 Модели — **интерфейсы** (форма данных). Бизнес-логика — **чистые функции**.
-ORM-entity **реализует** интерфейс. Маппинг не нужен.
+Prisma-генерированные типы структурно совместимы с доменными интерфейсами — маппинг не нужен.
 
 ### Модель
 
@@ -652,19 +689,25 @@ ORM-entity **реализует** интерфейс. Маппинг не нуж
 // modules/task/domain/models/task.ts
 export interface Task {
   id: string;
+  parentTaskId: string | null;
   title: string;
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
   assigneeId: string | null;
-  sectionId: string;
-  projectId: string;
-  position: number;
   dueDate: Date | null;
   completedAt: Date | null;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Связь задачи с проектом (M2M junction)
+export interface ProjectTask {
+  projectId: string;
+  taskId: string;
+  sectionId: string | null;
+  position: number;
 }
 ```
 
@@ -672,23 +715,20 @@ export interface Task {
 
 ```typescript
 // modules/task/domain/operations/task.operations.ts
-export function completeTask(task: Task): void {
+export function completeTask(task: Readonly<Task>): Pick<Task, 'status' | 'completedAt'> {
   if (task.status === 'completed') {
     throw new TaskAlreadyCompleted(task.id);
   }
-  task.status = 'completed';
-  task.completedAt = new Date();
+  return { status: 'completed', completedAt: new Date() };
 }
 
-export function reopenTask(task: Task): void {
+export function reopenTask(task: Readonly<Task>): Pick<Task, 'status' | 'completedAt'> {
   if (task.status !== 'completed') {
     throw new TaskNotCompleted(task.id);
   }
-  task.status = 'open';
-  task.completedAt = null;
+  return { status: 'open', completedAt: null };
 }
 
-// Readonly для функций, которые только читают
 export function isOverdue(task: Readonly<Task>): boolean {
   return task.dueDate !== null
     && task.status !== 'completed'
@@ -696,25 +736,15 @@ export function isOverdue(task: Readonly<Task>): boolean {
 }
 ```
 
-### Entity реализует интерфейс
+### Prisma-типы совместимы с доменными интерфейсами
+
+Prisma генерирует типы из `schema.prisma`. Доменные интерфейсы описывают ту же структуру — Prisma-объекты удовлетворяют им без маппинга:
 
 ```typescript
-// modules/task/infra/typeorm/entities/task.entity.ts
-import type { Task } from '../../../domain/models/task';
-
-@Entity('tasks')
-export class TaskEntity implements Task {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column()
-  title: string;
-
-  @Column({ type: 'enum', enum: TaskStatus })
-  status: TaskStatus;
-
-  // ... остальные @Column
-}
+// Prisma генерирует тип Task из schema.prisma (id, title, status, ...)
+// Доменный интерфейс описывает ту же форму:
+//   export interface Task { id: string; title: string; status: TaskStatus; ... }
+// → prisma.task.findUnique(...) возвращает объект, совместимый с Task
 ```
 
 ### Use case — чистый от infra
@@ -732,10 +762,10 @@ export class CompleteTaskCase {
 
   async execute(taskId: string, userId: string): Promise<Task> {
     const task = await this.taskRepo.findById(taskId);
-    completeTask(task);
-    await this.taskRepo.save(task);
-    this.events.emit(EVENTS.TASK.COMPLETED, { task, userId });
-    return task;
+    const changes = completeTask(task);
+    const updated = await this.taskRepo.update(taskId, changes);
+    this.events.emit(EVENTS.TASK.COMPLETED, { task: updated, userId });
+    return updated;
   }
 }
 ```
@@ -751,35 +781,39 @@ export class CompleteTaskCase {
 ## Контракты (DIP)
 
 Интерфейсы лежат в `modules/*/domain/` — принадлежат потребителю.
-Реализации в `infra/typeorm/` импортируют их через `import type`.
+Реализации в `infra/prisma/` импортируют их через `import type`.
 
 ```typescript
 // modules/task/domain/repositories/task.repository.ts
 export interface TaskRepository {
   findById(id: string): Promise<Task | null>;
-  findBySection(sectionId: string): Promise<Task[]>;
   findByProject(projectId: string, filter?: TaskFilter): Promise<Task[]>;
   create(data: NewTask): Promise<Task>;
-  save(task: Task): Promise<Task>;
+  update(id: string, data: Partial<Task>): Promise<Task>;
   remove(id: string): Promise<void>;
 }
 
-// modules/task/infra/typeorm/repositories/task.repository.ts
+export interface ProjectTaskRepository {
+  findByProject(projectId: string): Promise<ProjectTask[]>;
+  findByTask(taskId: string): Promise<ProjectTask[]>;
+  addTaskToProject(data: ProjectTask): Promise<ProjectTask>;
+  removeTaskFromProject(projectId: string, taskId: string): Promise<void>;
+  updatePosition(projectId: string, taskId: string, sectionId: string | null, position: number): Promise<ProjectTask>;
+}
+
+// modules/task/infra/prisma/task.repository.ts
 import type { TaskRepository } from '../../../domain/repositories/task.repository';
 
 @Injectable()
 export class TaskRepositoryImpl implements TaskRepository {
-  constructor(
-    @InjectRepository(TaskEntity)
-    private readonly repo: Repository<TaskEntity>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<Task | null> {
-    return this.repo.findOne({ where: { id } });
+    return this.prisma.task.findUnique({ where: { id } });
   }
 
-  async save(task: Task): Promise<Task> {
-    return this.repo.save(task as TaskEntity);
+  async update(id: string, data: Partial<Task>): Promise<Task> {
+    return this.prisma.task.update({ where: { id }, data });
   }
   // ...
 }
@@ -790,7 +824,7 @@ export class TaskRepositoryImpl implements TaskRepository {
 ```typescript
 // modules/task/infra/task.infra.module.ts
 @Module({
-  imports: [TypeOrmModule.forFeature([TaskEntity])],
+  imports: [PrismaModule],
   providers: [{ provide: TaskDI.REPOSITORY, useClass: TaskRepositoryImpl }],
   exports: [TaskDI.REPOSITORY],
 })
@@ -807,15 +841,14 @@ export class TaskInfraModule {}
     ProjectInfraModule,               // ProjectDI.SECTION_REPOSITORY для MoveTask
     UserInfraModule,                  // UserDI.REPOSITORY для AssignTask
   ],
-  controllers: [TaskController],
   providers: [
-    TaskWsHandler,
+    TaskWsController,
     CreateTask, UpdateTask, DeleteTask,
     GetTask, ListTasks, CompleteTask,
     ReopenTask, AssignTask, MoveTask,
     CreateSubtask,
   ],
-  exports: [TaskWsHandler],          // для Gateway
+  exports: [TaskWsController],       // для Gateway
 })
 export class TaskModule {}
 ```
@@ -825,25 +858,25 @@ export class TaskModule {}
 - МОЖНО: `domain/**` (интерфейсы моделей, операции, DI-токены, исключения) — через `import type` или barrel `index.ts`
 - МОЖНО: `infra/*.infra.module.ts` — для получения провайдеров через DI
 - НЕЛЬЗЯ: `use-cases/*.case.ts` — вместо этого EventEmitter
-- НЕЛЬЗЯ: `infra/typeorm/**` — это реализации, зависимость только от интерфейсов в `domain/`
+- НЕЛЬЗЯ: `infra/prisma/**` — это реализации, зависимость только от интерфейсов в `domain/`
 
 ## Порядок разработки (MVP)
 
-1. auth — регистрация, логин, JWT
-2. user — профиль
-3. workspace — создание, участники, роли
-4. project + sections — CRUD, структура
-5. task — CRUD, статусы, назначение, перемещение, подзадачи
-6. WebSocket gateway + ws-handlers для task и project
-7. comment — CRUD, real-time через WS
-8. activity — лента изменений (event-driven)
+1. auth — регистрация, логин, JWT (REST)
+2. WebSocket (ws/) — gateway + JWT auth на handshake
+3. user — профиль (WS)
+4. workspace — создание, участники, роли (WS)
+5. project + sections — CRUD, структура (WS)
+6. task — CRUD, статусы, назначение, перемещение, подзадачи (WS)
+7. comment — CRUD, real-time (WS)
+8. activity — лента изменений (event-driven + WS чтение)
 9. notification — in-app + WS push (через BullMQ)
-10. file — загрузка вложений к задачам
-11. search — полнотекстовый поиск по задачам
+10. file — загрузка вложений к задачам (REST)
+11. search — полнотекстовый поиск по задачам (WS)
 
 ## Прочие правила
 
-- `synchronize: false` в TypeORM — использовать миграции
+- Prisma — использовать миграции (`prisma migrate`)
 - Каждый модуль экспортирует контракты из domain/ через barrel `index.ts`
 - Fractional indexing для позиций задач и секций (drag-and-drop без пересчёта)
 - Оптимистичные обновления на фронте: клиент показывает изменение сразу, сервер подтверждает через WS
