@@ -35,8 +35,17 @@
 
 ```
 users
-├── id (uuid), email, name, avatar_url, password_hash
+├── id (uuid), email, name, avatar_url
 ├── created_at, updated_at
+
+user_credentials
+├── id (uuid), user_id (-> users)
+├── password_hash
+
+refresh_tokens
+├── id (uuid), user_credentials_id (-> user_credentials)
+├── token, expires_at
+├── created_at
 
 workspaces
 ├── id (uuid), name, slug
@@ -104,6 +113,7 @@ notifications
 
 ```mermaid
 erDiagram
+    users ||--o| user_credentials : ""
     users ||--o{ workspace_members : ""
     workspaces ||--o{ workspace_members : ""
     users ||--o{ workspaces : "created_by"
@@ -123,10 +133,19 @@ erDiagram
     tasks ||--o{ activities : "task_id"
     users ||--o{ activities : "user_id"
     users ||--o{ notifications : "user_id"
+    user_credentials ||--o{ refresh_tokens : ""
 
     users {
         uuid id PK
         varchar email UK
+    }
+    user_credentials {
+        uuid id PK
+        uuid user_id FK
+    }
+    refresh_tokens {
+        uuid id PK
+        uuid user_credentials_id FK
     }
     workspaces {
         uuid id PK
@@ -219,10 +238,12 @@ src/
     │   ├── domain/
     │   │   ├── di.tokens.ts
     │   │   ├── models/
-    │   │   │   ├── user-tokens.ts
-    │   │   │   └── refresh-token.ts
+    │   │   │   ├── user-credentials.ts      # userId, passwordHash
+    │   │   │   └── refresh-token.ts         # userCredentialsId, token, expiresAt
+    │   │   ├── types/
+    │   │   │   └── auth.types.ts            # UserTokens, JwtPayload
     │   │   ├── repositories/
-    │   │   │   └── refresh-token.repository.ts
+    │   │   │   └── auth-user.repository.ts  # единый репозиторий для credentials и refresh tokens
     │   │   └── exceptions/
     │   │       ├── invalid-credentials.ts
     │   │       ├── email-already-exists.ts
@@ -231,7 +252,7 @@ src/
     │   ├── infra/
     │   │   ├── auth.infra.module.ts
     │   │   └── prisma/
-    │   │       └── refresh-token.repository.ts
+    │   │       └── auth-user.repository.ts
     │   │
     │   ├── use-cases/
     │   │   ├── register.case.ts

@@ -7,5 +7,5 @@ datasource db {
 }
 
 model User {
-  id String @id
+  id String @id 
 }

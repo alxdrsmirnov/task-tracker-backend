@@ -1,5 +1,5 @@
 ---
-name: module-domain-structure
+name: domain-structure
 description: Organizes `src/modules/{moduleName}/domain/` in project modules and keeps domain boundaries clean. Use when creating or refactoring domain folders, deciding where domain code belongs, or working with `models`, `repositories`, `gateways`, `types`, `di.tokens.ts`, `exceptions`, and `domain/index.ts`.
 ---
 
