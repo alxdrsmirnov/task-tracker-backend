@@ -367,66 +367,51 @@ src/
     │   ├── domain/
     │   │   ├── di.tokens.ts
     │   │   ├── models/
-    │   │   │   └── task.ts                    # interface Task
+    │   │   │   ├── task.ts                    # interface Task
+    │   │   │   └── comment.ts                 # interface Comment (подсущность задачи)
     │   │   ├── operations/
     │   │   │   └── task.operations.ts          # completeTask(), reopenTask(), isOverdue()
     │   │   ├── repositories/
-    │   │   │   └── task.repository.ts
+    │   │   │   ├── task.repository.ts
+    │   │   │   └── comment.repository.ts
     │   │   └── exceptions/
     │   │       ├── task-not-found.ts
-    │   │       └── task-already-completed.ts
+    │   │       ├── task-already-completed.ts
+    │   │       └── comment-not-found.ts
     │   │
     │   ├── infra/
     │   │   ├── task.infra.module.ts
     │   │   └── prisma/
-    │   │       └── task.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── create-task.case.ts
-    │   │   ├── update-task.case.ts
-    │   │   ├── delete-task.case.ts
-    │   │   ├── get-task.case.ts
-    │   │   ├── list-tasks.case.ts
-    │   │   ├── complete-task.case.ts
-    │   │   ├── reopen-task.case.ts
-    │   │   ├── assign-task.case.ts
-    │   │   ├── move-task.case.ts
-    │   │   ├── create-subtask.case.ts
-    │   │   └── dto/
-    │   │       ├── create-task.dto.ts
-    │   │       ├── update-task.dto.ts
-    │   │       ├── move-task.dto.ts
-    │   │       ├── assign-task.dto.ts
-    │   │       └── task-filter.dto.ts
-    │   │
-    │   └── index.ts
-    │
-    ├── comment/
-    │   ├── comment.module.ts
-    │   ├── comment.ws.controller.ts
-    │   │
-    │   ├── domain/
-    │   │   ├── di.tokens.ts
-    │   │   ├── models/
-    │   │   │   └── comment.ts
-    │   │   ├── repositories/
-    │   │   │   └── comment.repository.ts
-    │   │   └── exceptions/
-    │   │       └── comment-not-found.ts
-    │   │
-    │   ├── infra/
-    │   │   ├── comment.infra.module.ts
-    │   │   └── prisma/
+    │   │       ├── task.repository.ts
     │   │       └── comment.repository.ts
     │   │
     │   ├── use-cases/
-    │   │   ├── create-comment.case.ts
-    │   │   ├── update-comment.case.ts
-    │   │   ├── delete-comment.case.ts
-    │   │   ├── list-comments.case.ts
+    │   │   ├── task/
+    │   │   │   ├── create-task.case.ts
+    │   │   │   ├── update-task.case.ts
+    │   │   │   ├── delete-task.case.ts
+    │   │   │   ├── get-task.case.ts
+    │   │   │   ├── list-tasks.case.ts
+    │   │   │   ├── complete-task.case.ts
+    │   │   │   ├── reopen-task.case.ts
+    │   │   │   ├── assign-task.case.ts
+    │   │   │   ├── move-task.case.ts
+    │   │   │   └── create-subtask.case.ts
+    │   │   ├── comment/
+    │   │   │   ├── create-comment.case.ts
+    │   │   │   ├── update-comment.case.ts
+    │   │   │   ├── delete-comment.case.ts
+    │   │   │   └── list-comments.case.ts
     │   │   └── dto/
-    │   │       ├── create-comment.dto.ts
-    │   │       └── update-comment.dto.ts
+    │   │       ├── task/
+    │   │       │   ├── create-task.dto.ts
+    │   │       │   ├── update-task.dto.ts
+    │   │       │   ├── move-task.dto.ts
+    │   │       │   ├── assign-task.dto.ts
+    │   │       │   └── task-filter.dto.ts
+    │   │       └── comment/
+    │   │           ├── create-comment.dto.ts
+    │   │           └── update-comment.dto.ts
     │   │
     │   └── index.ts
     │
@@ -486,9 +471,9 @@ src/
     │   │
     │   └── index.ts
     │
-    ├── file/
-    │   ├── file.module.ts
-    │   ├── file.http.controller.ts
+    ├── attachment/
+    │   ├── attachment.module.ts
+    │   ├── attachment.http.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── di.tokens.ts
@@ -499,11 +484,11 @@ src/
     │   │   ├── gateways/
     │   │   │   └── storage.gateway.ts       # interface StorageGateway (upload, delete, getUrl)
     │   │   └── exceptions/
-    │   │       ├── file-not-found.ts
-    │   │       └── file-too-large.ts
+    │   │       ├── attachment-not-found.ts
+    │   │       └── attachment-too-large.ts
     │   │
     │   ├── infra/
-    │   │   ├── file.infra.module.ts
+    │   │   ├── attachment.infra.module.ts
     │   │   ├── prisma/
     │   │   │   └── attachment.repository.ts
     │   │   │
@@ -511,11 +496,11 @@ src/
     │   │       └── s3.gateway.ts            # implements StorageGateway
     │   │
     │   ├── use-cases/
-    │   │   ├── upload-file.case.ts
-    │   │   ├── delete-file.case.ts
+    │   │   ├── upload-attachment.case.ts
+    │   │   ├── delete-attachment.case.ts
     │   │   ├── list-attachments.case.ts
     │   │   └── dto/
-    │   │       └── upload-file.dto.ts
+    │   │       └── upload-attachment.dto.ts
     │   │
     │   └── index.ts
     │
@@ -541,7 +526,6 @@ src/
 export class AppGateway {
   constructor(
     private readonly taskWsController: TaskWsController,
-    private readonly commentWsController: CommentWsController,
     private readonly notificationWsController: NotificationWsController,
     private readonly projectWsController: ProjectWsController,
     private readonly workspaceWsController: WorkspaceWsController,
@@ -776,7 +760,7 @@ export class CompleteTaskCase {
 |---|---|---|
 | task | да | Статусы, завершение, переоткрытие, назначение |
 | workspace | да | Проверки ролей участников |
-| comment, notification, activity, file | нет | Чистый CRUD, нет бизнес-правил |
+| notification, activity, attachment | нет | Чистый CRUD, нет бизнес-правил |
 
 ## Контракты (DIP)
 
@@ -867,9 +851,8 @@ export class TaskModule {}
 3. user — профиль (WS)
 4. workspace — создание, участники, роли (WS)
 5. project + sections — CRUD, структура (WS)
-6. task — CRUD, статусы, назначение, перемещение, подзадачи (WS)
-7. comment — CRUD, real-time (WS)
-8. activity — лента изменений (event-driven + WS чтение)
+6. task — CRUD, статусы, назначение, перемещение, подзадачи, комментарии (WS)
+7. activity — лента изменений (event-driven + WS чтение)
 9. notification — in-app + WS push (через BullMQ)
 10. file — загрузка вложений к задачам (REST)
 11. search — полнотекстовый поиск по задачам (WS)

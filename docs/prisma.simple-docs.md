@@ -67,6 +67,339 @@ npx prisma migrate dev --name add_user_table
 npx prisma migrate deploy
 ```
 
+---
+
+## Составление моделей (Models)
+
+Модель в Prisma описывает таблицу в БД и определяет её поля, типы, отношения и ограничения. Ниже — детальное руководство по созданию моделей.
+
+### 1. Базовая структура модели
+
+```prisma
+model ModelName {
+  fieldName  FieldType  @attributes
+  // ...
+}
+```
+
+- **ModelName** — имя в PascalCase, соответствует имени таблицы (по умолчанию — `ModelName` в PostgreSQL).
+- **fieldName** — имя поля в camelCase.
+- **FieldType** — тип данных.
+- **@attributes** — опциональные атрибуты.
+
+### 2. Типы полей (Scalar types)
+
+| Prisma тип | PostgreSQL | Описание |
+|------------|------------|----------|
+| `String` | `TEXT` | Строка произвольной длины |
+| `Boolean` | `BOOLEAN` | true/false |
+| `Int` | `INTEGER` | 32-битное целое |
+| `BigInt` | `BIGINT` | 64-битное целое |
+| `Float` | `DOUBLE PRECISION` | Число с плавающей точкой |
+| `Decimal` | `DECIMAL(65,30)` | Точная десятичная дробь (деньги, расчёты) |
+| `DateTime` | `TIMESTAMP(3)` | Дата и время (миллисекунды) |
+| `Json` | `JSONB` | JSON-объект |
+| `Bytes` | `BYTEA` | Бинарные данные |
+
+**Опциональность (nullable):**
+
+```prisma
+name     String   // NOT NULL — обязательное
+name     String?  // NULL — опциональное
+```
+
+### 3. Идентификаторы и уникальность
+
+```prisma
+model User {
+  id        Int      @id @default(autoincrement())  // Автоинкремент
+  uuid      String   @id @default(uuid())           // UUID как primary key
+  email     String   @unique                        // Уникальное поле
+  username  String   @unique @default(cuid())       // CUID — collision-resistant ID
+}
+```
+
+**Варианты `@default` для ID:**
+
+- `@default(autoincrement())` — автоинкремент (Int).
+- `@default(uuid())` — UUID v4.
+- `@default(cuid())` — CUID (collision-resistant unique identifier).
+- `@default(cuid2())` — CUID2 (новый формат).
+
+**Другие `@default`:**
+
+```prisma
+createdAt  DateTime  @default(now())
+updatedAt  DateTime  @updatedAt                    // Обновляется автоматически
+published  Boolean   @default(false)
+score      Int       @default(0)
+```
+
+### 4. Отношения между моделями
+
+#### One-to-Many (один ко многим)
+
+```prisma
+model User {
+  id    Int    @id @default(autoincrement())
+  posts Post[]
+}
+
+model Post {
+  id       Int  @id @default(autoincrement())
+  author   User @relation(fields: [authorId], references: [id])
+  authorId Int  // Скалярное поле — foreign key
+}
+```
+
+- На стороне «многих» — скалярное поле `authorId` и связь `@relation`.
+- На стороне «одного» — массив `Post[]` (виртуальное поле, не создаёт колонку).
+
+#### One-to-One (один к одному)
+
+```prisma
+model User {
+  id      Int    @id @default(autoincrement())
+  profile Profile?
+}
+
+model Profile {
+  id     Int  @id @default(autoincrement())
+  user   User @relation(fields: [userId], references: [id])
+  userId Int  @unique  // @unique обязателен для 1:1
+}
+```
+
+Для 1:1 на стороне «подчинённой» модели поле связи должно быть `@unique`.
+
+#### Many-to-Many (многие ко многим)
+
+**Неявная связь (Prisma создаёт join-таблицу):**
+
+```prisma
+model Post {
+  id       Int    @id @default(autoincrement())
+  title    String
+  tags     Tag[]
+}
+
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String
+  posts Post[]
+}
+```
+
+Prisma создаёт таблицу `_PostToTag` с колонками `A` и `B`.
+
+**Явная связь (своя join-таблица):**
+
+```prisma
+model Post {
+  id         Int      @id @default(autoincrement())
+  title      String
+  postTags   PostTag[]
+}
+
+model Tag {
+  id       Int      @id @default(autoincrement())
+  name     String
+  postTags PostTag[]
+}
+
+model PostTag {
+  postId   Int
+  tagId    Int
+  post     Post @relation(fields: [postId], references: [id])
+  tag      Tag  @relation(fields: [tagId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@id([postId, tagId])  // Составной primary key
+}
+```
+
+Явная модель нужна, если в связи есть дополнительные поля.
+
+#### Именованные связи (несколько связей между моделями)
+
+```prisma
+model User {
+  id            Int    @id @default(autoincrement())
+  writtenPosts  Post[] @relation("Author")
+  editedPosts   Post[] @relation("Editor")
+}
+
+model Post {
+  id        Int   @id @default(autoincrement())
+  author    User  @relation("Author", fields: [authorId], references: [id])
+  authorId  Int
+  editor    User? @relation("Editor", fields: [editorId], references: [id])
+  editorId  Int?
+}
+```
+
+### 5. Индексы
+
+```prisma
+model User {
+  id        Int    @id @default(autoincrement())
+  email     String @unique              // Уникальный индекс
+  companyId Int
+  status    String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])                 // Индекс на одно поле
+  @@index([companyId, status])         // Составной индекс
+  @@index([status], name: "status_idx") // Именованный индекс
+}
+```
+
+**Когда нужны индексы:**
+
+- Поля в `where`, `orderBy`, `groupBy`.
+- Foreign key (часто создаётся автоматически).
+- Частые поиски по нескольким полям — составной индекс.
+
+### 6. Enum
+
+```prisma
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model User {
+  id     Int  @id @default(autoincrement())
+  role   Role @default(USER)
+}
+
+model Task {
+  id     Int        @id @default(autoincrement())
+  status TaskStatus @default(PENDING)
+}
+```
+
+В PostgreSQL enum создаётся как отдельный тип.
+
+### 7. Маппинг имён (naming)
+
+```prisma
+model User {
+  id        Int    @id @default(autoincrement())
+  firstName String @map("first_name")   // Колонка: first_name
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model Post {
+  id Int @id @default(autoincrement())
+
+  @@map("blog_posts")  // Таблица: blog_posts
+}
+```
+
+- `@map("column_name")` — имя колонки в БД.
+- `@@map("table_name")` — имя таблицы в БД.
+
+### 8. Составной первичный ключ
+
+```prisma
+model Vote {
+  userId Int
+  postId Int
+  user   User @relation(fields: [userId], references: [id])
+  post   Post @relation(fields: [postId], references: [id])
+
+  @@id([userId, postId])
+}
+```
+
+### 9. Уникальные ограничения
+
+```prisma
+model User {
+  id    Int    @id @default(autoincrement())
+  email String @unique
+}
+
+// Составной unique
+model UserSession {
+  userId    Int
+  sessionId String
+  @@unique([userId, sessionId])
+}
+```
+
+### 10. Каскадное удаление (onDelete)
+
+```prisma
+model Post {
+  id       Int  @id @default(autoincrement())
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId Int
+}
+```
+
+Варианты `onDelete`:
+
+- `Cascade` — удалить связанные записи.
+- `SetNull` — выставить `null` (поле должно быть опциональным).
+- `Restrict` — запретить удаление, если есть связанные записи (по умолчанию).
+- `NoAction` — без действия на уровне БД.
+- `SetDefault` — выставить значение по умолчанию.
+
+### 11. Чек-лист при создании модели
+
+1. **ID** — `@id` с подходящим `@default` (autoincrement, uuid, cuid).
+2. **Обязательность** — `String` vs `String?` в зависимости от бизнес-логики.
+3. **Связи** — корректные `@relation`, скалярные FK и `@unique` для 1:1.
+4. **Индексы** — для полей в `where`/`orderBy` и для FK.
+5. **Уникальность** — `@unique` или `@@unique` там, где нужно.
+6. **Значения по умолчанию** — `@default` для булевых, дат, статусов.
+7. **Имена в БД** — `@map`/`@@map` при необходимости snake_case.
+8. **Каскады** — `onDelete` для связей, где важно поведение при удалении.
+
+### 12. Пример полной модели
+
+```prisma
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus  @default(PENDING)
+  priority    Int         @default(0)
+  assigneeId  Int?
+  projectId   Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  assignee  User?    @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status, projectId])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+```
+
+---
+
 ## Основные возможности
 
 ### **CRUD операции**
