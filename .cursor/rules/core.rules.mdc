@@ -28,7 +28,9 @@ alwaysApply: true
 
 - Never use the `any` type.
 - Use type casts (`as T`) only with explicit user permission.
-- Put types in separate files; do not mix types with implementation.
+- Put types and interfaces in separate files; do not mix types with implementation.
+- Place the constructor at the very beginning of the class, when one is needed.
+- Follow formatting conventions (project ESLint/Prettier config).
 
 ## Documentation
 
