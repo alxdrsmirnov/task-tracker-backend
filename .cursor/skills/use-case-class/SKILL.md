@@ -30,11 +30,12 @@ The exception must be thrown inside the private method, not checked in `execute(
 Forbidden:
 
 ```ts
-public async execute(hook: FormPyrus): Promise<void> {
-  const comment = this.getRelevantComment(hook)
+@ValidateDto()
+public async execute(dto: SyncRelationDto): Promise<void> {
+  const comment = this.getRelevantComment(dto)
   if (!comment) return
 
-  const ids = this.extractLinkedIds(hook)
+  const ids = this.extractLinkedIds(dto)
   if (!ids) return
 
   const relation = await this.loadRelation(ids.leadId)
@@ -47,25 +48,26 @@ public async execute(hook: FormPyrus): Promise<void> {
 Required:
 
 ```ts
-public async execute(hook: FormPyrus): Promise<void> {
-  const comment = this.getRelevantComment(hook)
-  const ids = this.extractLinkedIds(hook)
+@ValidateDto()
+public async execute(dto: SyncRelationDto): Promise<void> {
+  const comment = this.getRelevantComment(dto)
+  const ids = this.extractLinkedIds(dto)
 
   const relation = await this.loadRelation(ids.leadId)
 
   await this.syncRelation(comment, ids, relation)
 }
 
-private getRelevantComment(hook: FormPyrus): Comment {
-  const comment = hook.comments.at(-1)
+private getRelevantComment(dto: SyncRelationDto): Comment {
+  const comment = dto.comments.at(-1)
   if (!comment) {
     throw new RelevantCommentNotFound()
   }
   return comment
 }
 
-private extractLinkedIds(hook: FormPyrus): LinkedIds {
-  const ids = this.parseLinkedIds(hook)
+private extractLinkedIds(dto: SyncRelationDto): LinkedIds {
+  const ids = this.parseLinkedIds(dto)
   if (!ids) {
     throw new LinkedIdsNotFound()
   }
@@ -99,16 +101,95 @@ if (existing) {
 Use `boolean` only for explicit business predicates: `isDuplicate`, `shouldSyncPhone`.
 A predicate may choose between business branches, but must not exist only to justify `return` from `execute()`.
 
+## Input Contract
+
+`execute()` accepts exactly one parameter — a DTO class instance.
+`@ValidateDto()` decorator is required on `execute()`.
+
+### Rules
+
+- `execute()` always takes exactly 1 parameter: `dto: XxxDto`
+- `@ValidateDto()` is required — it validates the DTO before the method body runs
+- DTO must be a **class** (not an interface or type alias) — `Reflect.getMetadata` requires a runtime class
+- DTO fields use `class-validator` decorators (`@IsString()`, `@IsEmail()`, `@MinLength()`, etc.)
+- DTO files live in `use-cases/dto/`, named `{case-name}.dto.ts`
+- Data that comes from auth context (e.g. `userId`) is included in the DTO — the controller populates it
+
+### What `@ValidateDto()` does
+
+1. Determines the DTO class via `Reflect.getMetadata('design:paramtypes', ...)`
+2. Transforms the plain object into a class instance via `plainToInstance`
+3. Validates the instance via `class-validator`
+4. On failure — throws `DtoValidationFailed` with formatted errors
+5. On success — calls the original method with the validated DTO instance
+
+### Example
+
+```ts
+// use-cases/dto/register.dto.ts
+import { IsEmail, IsString, MinLength } from 'class-validator'
+
+export class RegisterDto {
+  @IsEmail()
+  email: string
+
+  @IsString()
+  @MinLength(6)
+  password: string
+
+  @IsString()
+  name: string
+}
+```
+
+```ts
+// use-cases/register.case.ts
+@Injectable()
+export class RegisterCase {
+  constructor(
+    @Inject(AuthDomainDI.AUTH_USER_REPOSITORY)
+    private readonly authUserRepo: AuthUserRepository,
+  ) {}
+
+  @ValidateDto()
+  public async execute(dto: RegisterDto): Promise<UserTokens> {
+    await this.ensureEmailNotTaken(dto.email)
+    const user = await this.createUser(dto)
+    const credentials = await this.createCredentials(user.id, dto.password)
+    return this.generateTokens(user, credentials)
+  }
+
+  // private methods...
+}
+```
+
+### Controller passes data into DTO
+
+```ts
+// HTTP controller
+@Post('register')
+register(@Body() body: RegisterDto) {
+  return this.registerCase.execute(body)
+}
+
+// WS controller
+async create(client: Socket, data: CreateTaskWsPayload) {
+  const dto = { ...data, userId: client.data.userId }
+  return this.createTask.execute(dto)
+}
+```
+
 ## Core Rules
 
 1. One public method: `execute()`
-2. One use case = one complete business scenario
-3. `execute()` delegates to well-named private methods
-4. Private methods return required data or throw domain exceptions
-5. Do not split one scenario into multiple use cases without a clear business boundary
-6. Do not import another module's use case; use domain contracts, DI tokens, or events
-7. `private` by default; `protected` only when inheritance requires it
-8. Do not introduce `any`
+2. `execute()` takes exactly 1 parameter — a DTO class; `@ValidateDto()` is required
+3. One use case = one complete business scenario
+4. `execute()` delegates to well-named private methods
+5. Private methods return required data or throw domain exceptions
+6. Do not split one scenario into multiple use cases without a clear business boundary
+7. Do not import another module's use case; use domain contracts, DI tokens, or events
+8. `private` by default; `protected` only when inheritance requires it
+9. Do not introduce `any`
 
 ## Exception Rules
 
@@ -178,6 +259,9 @@ When editing an existing use case:
 
 Verify before finishing:
 
+- [ ] `execute()` takes exactly 1 parameter — a DTO class
+- [ ] `@ValidateDto()` is applied to `execute()`
+- [ ] DTO is in `use-cases/dto/`, fields have `class-validator` decorators
 - [ ] `execute()` reads as a business scenario, not implementation details
 - [ ] No `if (!x) return` chains — private methods return `T` or throw
 - [ ] Exceptions thrown inside private methods, not checked in `execute()`

@@ -115,12 +115,12 @@ interface JwtPayload {
 interface AuthUserRepository {
   // UserCredentials
   findCredentialsByUserId(userId: string): Promise<UserCredentials | null>;
-  createCredentials(data: Omit<UserCredentials, 'id'>): Promise<UserCredentials>;
+  createCredentials(data: New<UserCredentials>): Promise<UserCredentials>;
   updatePassword(userId: string, passwordHash: string): Promise<void>;
 
   // RefreshToken
   findRefreshToken(token: string): Promise<RefreshToken | null>;
-  createRefreshToken(data: Omit<RefreshToken, 'id' | 'createdAt'>): Promise<RefreshToken>;
+  createRefreshToken(data: New<RefreshToken>): Promise<RefreshToken>;
   deleteRefreshToken(token: string): Promise<void>;
   deleteAllUserRefreshTokens(userCredentialsId: string): Promise<void>;
 }
