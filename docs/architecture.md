@@ -29,7 +29,7 @@
 - common/infra/prisma/ — Prisma schema, client, миграции; импортируется в app.module.ts
 - common/ — шарится между модулями (pipes, decorators, utils, types)
 - Кросс-модульный доступ к данным: модуль импортирует `*.infra.module.ts` другого модуля
-- Кросс-модульные JOIN-ы в репозиториях запрещены. Каждый модуль работает только со своими таблицами: не использовать Prisma `include`/`select` с relations на таблицы другого модуля. Если use case нужны данные из двух модулей — он получает их отдельными вызовами через репозитории/сервисы каждого модуля. Ссылки на сущности другого модуля хранятся как `id: string`, без Prisma relation
+- Кросс-модульные JOIN-ы в репозиториях запрещены. Каждый модуль работает только со своими таблицами: не использовать Prisma `include`/`select` с relations на таблицы другого модуля. Если use case нужны данные из двух модулей — он получает их отдельными вызовами через репозитории каждого модуля. Ссылки на сущности другого модуля хранятся как `id: string`, без Prisma relation
 - Gateway — тонкий роутер, не содержит логики, делегирует в ws-контроллер модулей
 
 ## Схема БД
@@ -719,20 +719,24 @@ export interface ProjectTask {
 
 ### Операции
 
+Операции — **иммутабельные чистые функции**. Принимают `Readonly<T>`, возвращают новый объект. Никогда не мутируют входной аргумент. Не имеют побочных эффектов (кроме выброса доменных исключений).
+
+Если операция изменяет данные модели — она возвращает полную модель (`T`), а не частичный объект. Use case получает готовый результат и не собирает модель по частям.
+
 ```typescript
 // modules/task/domain/operations/task.operations.ts
-export function completeTask(task: Readonly<Task>): Pick<Task, 'status' | 'completedAt'> {
+export function completeTask(task: Readonly<Task>): Task {
   if (task.status === 'completed') {
     throw new TaskAlreadyCompleted(task.id);
   }
-  return { status: 'completed', completedAt: new Date() };
+  return { ...task, status: 'completed', completedAt: new Date() };
 }
 
-export function reopenTask(task: Readonly<Task>): Pick<Task, 'status' | 'completedAt'> {
+export function reopenTask(task: Readonly<Task>): Task {
   if (task.status !== 'completed') {
     throw new TaskNotCompleted(task.id);
   }
-  return { status: 'open', completedAt: null };
+  return { ...task, status: 'open', completedAt: null };
 }
 
 export function isOverdue(task: Readonly<Task>): boolean {
@@ -768,10 +772,10 @@ export class CompleteTaskCase {
 
   async execute(taskId: string, userId: string): Promise<Task> {
     const task = await this.taskRepo.findById(taskId);
-    const changes = completeTask(task);
-    const updated = await this.taskRepo.update(taskId, changes);
-    this.events.emit(EVENTS.TASK.COMPLETED, { task: updated, userId });
-    return updated;
+    const completed = completeTask(task);
+    const saved = await this.taskRepo.update(completed);
+    this.events.emit(EVENTS.TASK.COMPLETED, { task: saved, userId });
+    return saved;
   }
 }
 ```
