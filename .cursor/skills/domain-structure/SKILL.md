@@ -1,6 +1,6 @@
 ---
 name: domain-structure
-description: Organizes `src/modules/{moduleName}/domain/` in project modules and keeps domain boundaries clean. Use when creating or refactoring domain folders, deciding where domain code belongs, or working with `models`, `repositories`, `gateways`, `types`, `di.tokens.ts`, `exceptions`, and `domain/index.ts`.
+description: Organizes `src/modules/{moduleName}/domain/` in project modules and keeps domain boundaries clean. Use when creating or refactoring domain folders, deciding where domain code belongs, or working with `models`, `repositories`, `gateways`, `services`, `types`, `di.tokens.ts`, `exceptions`, and `domain/index.ts`.
 ---
 
 # Module Domain Structure
@@ -11,7 +11,7 @@ Apply this skill when at least one of these signals is present:
 
 1. The work touches `src/modules/*/domain/**`
 2. The task is to create or refactor a module's `domain/` structure
-3. The task mentions `models`, `repositories`, `gateways`, `types`, `di.tokens.ts`, `exceptions`, or `domain/index.ts`
+3. The task mentions `models`, `repositories`, `gateways`, `services`, `types`, `di.tokens.ts`, `exceptions`, or `domain/index.ts`
 4. The task requires deciding whether code belongs to `domain` or `infra`
 
 ## Goal
@@ -23,9 +23,10 @@ A developer should be able to open `domain/` and immediately see:
 1. Business entities in `models`
 2. Database contracts in `repositories`
 3. External API contracts in `gateways`
-4. Supporting domain types in `types`
-5. Domain-specific exceptions in `exceptions`
-6. Public domain exports in `domain/index.ts`
+4. Infrastructure capability contracts in `services`
+5. Supporting domain types in `types`
+6. Domain-specific exceptions in `exceptions`
+7. Public domain exports in `domain/index.ts`
 
 ## Target Shape
 
@@ -38,6 +39,7 @@ domain/
   models/
   repositories/
   gateways/
+  services/
   types/
   exceptions/
 ```
@@ -45,12 +47,13 @@ domain/
 Rules for creation:
 
 1. `domain/index.ts` is required
-2. `di.tokens.ts` is created when the module has domain contracts (`repositories/` or `gateways/`)
+2. `di.tokens.ts` is created when the module has domain contracts (`repositories/`, `gateways/`, or `services/`)
 3. `repositories/` is created only when the module needs database or persistence contracts
 4. `gateways/` is created only when the module needs external API contracts
-5. `constants.ts` is created when the module has shared domain constants; keep it focused on domain values
-6. `utils` is created only when a narrow domain helper is truly needed and the logic does not belong to a model, type, contract, or use case; do not create by default
-7. Do not create `entities/` inside `domain/`; use `models/`
+5. `services/` is created only when the module needs infrastructure capability contracts that are neither persistence nor external system integrations
+6. `constants.ts` is created when the module has shared domain constants; keep it focused on domain values
+7. `utils` is created only when a narrow domain helper is truly needed and the logic does not belong to a model, type, contract, or use case; do not create by default
+8. Do not create `entities/` inside `domain/`; use `models/`
 
 ## Folder Rules
 
@@ -58,11 +61,26 @@ Before creating a new file in `domain/`, classify the artifact:
 
 - Business entity -> `models/`
 - Supporting type or `enum` -> `types/`
-- Database contract -> `repositories/`
-- External API contract -> `gateways/`
+- Database or persistence contract -> `repositories/`
+- External system integration contract -> `gateways/`
+- Infrastructure capability contract -> `services/`
 - Domain-specific error -> `exceptions/`
 - Domain DI token -> `di.tokens.ts`
 - Implementation detail -> not `domain/`; check `infra` or another layer
+
+### Interface formatting
+
+Separate methods in contract interfaces (`repositories/`, `gateways/`, `services/`) with a blank line:
+
+```ts
+export interface AuthUserRepository {
+  findByUserId(userId: string): Promise<UserCredentials | null>
+
+  createCredentials(data: CreateCredentialsData): Promise<void>
+
+  findRefreshToken(token: string): Promise<RefreshToken | null>
+}
+```
 
 ### `models/`
 
@@ -103,8 +121,9 @@ Use this folder for:
 1. `enum`
 2. Repository method arguments
 3. Gateway method arguments
-4. Search or filter params
-5. Grouped aliases and helper interfaces that are not business entities
+4. Service method arguments
+5. Search or filter params
+6. Grouped aliases and helper interfaces that are not business entities
 
 Rules:
 
@@ -164,6 +183,41 @@ Good fit: `lead.gateway.ts`, `form.gateway.ts`, `task.gateway.ts`
 
 Bad fit: `pizzeria.gateway.ts` (if pizzeria is a local DB entity — use `repositories/`)
 
+### `services/`
+
+Store only infrastructure capability contracts.
+
+A service contract abstracts an infrastructure capability that could be implemented entirely in-process, without calling an external system over the network. The domain needs the capability but must not know the library or algorithm behind it.
+
+Use this folder for contracts such as:
+
+1. Password or data hashing
+2. Encryption / decryption
+3. Token or code generation
+4. ID generation
+5. Data serialization or transformation that depends on a specific algorithm
+
+Do NOT use this folder for:
+
+1. Database access (use `repositories/`)
+2. Communication with an identifiable external system over the network (use `gateways/`)
+
+Rules:
+
+1. Only `interface`
+2. Methods should accept and return primitive types, `models`, local supporting types from `types/`, or shared types from `src/common/types`
+3. Never place implementation classes here
+4. Prefer method names that describe the capability intent, such as `hash`, `verify`, `generate`, `encrypt`, `decrypt`
+
+Naming:
+
+- File: `{capability}.service.ts` in `kebab-case` (e.g. `password-hasher.service.ts`)
+- Interface: `PascalCase` describing the capability (e.g. `PasswordHasher`); a `Service` suffix is not required when the name is already self-descriptive
+
+Good fit: `password-hasher.service.ts`, `token-generator.service.ts`, `id-generator.service.ts`
+
+Bad fit: `auth-user.service.ts` (if it accesses the database — use `repositories/`), `email-sender.service.ts` (if it sends email through an external provider — use `gateways/`)
+
 ### `exceptions/`
 
 Store domain-specific exception classes.
@@ -201,11 +255,65 @@ Rules:
 Rules:
 
 1. Re-export the public domain API from here
-2. Group exports by meaning when the file grows
-3. Prefer re-exporting domain items from the module root through `domain/index.ts` instead of deep file paths
-4. Treat `domain/index.ts` as the public surface of the domain layer
-5. If a symbol is not exported from `domain/index.ts`, treat it as internal
-6. Avoid deep imports into another module's `domain/` internals
+2. Treat `domain/index.ts` as the public surface of the domain layer
+3. If a symbol is not exported from `domain/index.ts`, treat it as internal
+4. Avoid deep imports into another module's `domain/` internals
+
+Structure:
+
+1. First line: DI tokens export (no section header)
+2. Then categorized sections, each preceded by a `/** === SectionName === */` comment
+3. Blank line between sections
+4. Only include sections that have exports
+5. Section order:
+
+| Order | Header | Contents |
+|---|---|---|
+| — | _(no header)_ | `{Module}DomainDI` from `./di.tokens` |
+| 1 | `/** === Models === */` | Business entities from `models/` |
+| 2 | `/** === Repositories === */` | Persistence contracts from `repositories/` |
+| 3 | `/** === Gateways === */` | External integration contracts from `gateways/` |
+| 4 | `/** === Services === */` | Infrastructure capability contracts from `services/` |
+| 5 | `/** === Types === */` | Supporting types from `types/` |
+| 6 | `/** === Exceptions === */` | Domain exceptions from `exceptions/` |
+
+Example:
+
+```ts
+export { AuthDomainDI } from './di.tokens'
+
+/** === Models === */
+export type { UserCredentials } from './models/user-credentials'
+export type { RefreshToken } from './models/refresh-token'
+
+/** === Repositories === */
+export type { AuthUserRepository } from './repositories/auth-user.repository'
+
+/** === Services === */
+export type { PasswordHasher } from './services/password-hasher.service'
+
+/** === Types === */
+export type { UserTokens, JwtPayload } from './types/auth.types'
+
+/** === Exceptions === */
+export { InvalidCredentials } from './exceptions/invalid-credentials'
+export { EmailAlreadyExists } from './exceptions/email-already-exists'
+export { InvalidRefreshToken } from './exceptions/invalid-refresh-token'
+```
+
+## Contract Classification Guide
+
+When deciding where a contract belongs, ask these questions in order:
+
+1. Does it read or write data to a database or persistent store? → `repositories/`
+2. Does it communicate with an identifiable external system over the network? → `gateways/`
+3. Does it provide an infrastructure capability that can run entirely in-process? → `services/`
+
+| Signal | Folder | Example |
+|---|---|---|
+| SQL, ORM, cache, file storage as persistence | `repositories/` | `AuthUserRepository` |
+| HTTP API, webhook, SDK for third-party service | `gateways/` | `PaymentGateway` |
+| Crypto, hashing, token generation, encoding | `services/` | `PasswordHasher` |
 
 ## Import Rules
 
@@ -255,3 +363,4 @@ These mistakes are not obvious from the rules above:
 3. Using `any`, `unknown`, or `Record<string, unknown>` as a lazy escape hatch in domain contracts
 4. Turning infrastructure failures (timeouts, connection errors, SDK exceptions) into domain exceptions — translate them at the boundary
 5. Creating duplicate concepts with names like `Lead`, `LeadModel`, `LeadData`, and `LeadPayload` for the same business meaning — prefer one canonical name
+6. Placing a local infrastructure capability (hashing, token generation) in `gateways/` or `repositories/` — if the capability does not require network access or persistence, it belongs in `services/`
