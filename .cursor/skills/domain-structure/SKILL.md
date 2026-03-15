@@ -76,10 +76,34 @@ Separate methods in contract interfaces (`repositories/`, `gateways/`, `services
 export interface AuthUserRepository {
   findByUserId(userId: string): Promise<UserCredentials | null>
 
-  createCredentials(data: CreateCredentialsData): Promise<void>
+  create(data: New<UserCredentials>): Promise<UserCredentials>
 
   findRefreshToken(token: string): Promise<RefreshToken | null>
 }
+```
+
+### Contract method argument types
+
+For `create` and `update` methods in contract interfaces, use shared generic types instead of creating dedicated argument types:
+
+1. For `create`: use `New<Model>` from `src/common/types` — it strips `id`, `createdAt`, and `updatedAt` from the model
+2. For `update`: use `id` + `Partial<Model>`, or just `Model` (the full entity when all fields are being replaced)
+3. Do not create dedicated types like `CreateUserData` or `UpdateUserData` for these methods
+
+Bad:
+
+```ts
+create(data: CreateUserData): Promise<User>
+update(data: UpdateUserData): Promise<User>
+```
+
+Good:
+
+```ts
+create(data: New<User>): Promise<User>
+update(id: string, data: Partial<User>): Promise<User>
+// or when the full entity is passed:
+update(user: User): Promise<User>
 ```
 
 ### `models/`
@@ -129,11 +153,12 @@ Rules:
 
 1. Group related supporting types in one file when they belong to the same topic
 2. Do not move business entities here just because they are expressed as types
+3. Do not create `Create{Entity}Data` or `Update{Entity}Data` types for contract method arguments — use `New<Model>` and `Partial<Model>` (see "Contract method argument types")
 
 Naming:
 
 - File: `{topic}.types.ts` in `kebab-case` (e.g. `custom-field.types.ts`, `webhook.types.ts`)
-- Types: `PascalCase` with descriptive suffixes such as `Params`, `Payload`, `Data`, `Filter`, `Sort`, `Update`, `Item`, `Detail` (e.g. `FormRegisterParams`, `AmoCandidateData`, `MapPizzeriaItem`)
+- Types: `PascalCase` with descriptive suffixes such as `Params`, `Payload`, `Filter`, `Sort`, `Item`, `Detail` (e.g. `FormRegisterParams`, `AmoCandidateData`, `MapPizzeriaItem`)
 
 Good fit: `amo-enums.types.ts`, `field.types.ts`, `map-pizzeria.types.ts`
 
@@ -334,6 +359,13 @@ Inside `src/modules/{moduleName}/domain/**`, prefer only these imports:
 2. Shared types from `src/common/types`
 3. Public exports of another module when a true cross-module domain dependency is required
 
+Import path style:
+
+1. Always verify that import paths are correct before saving
+2. Use the shortest available path without sacrificing readability — prefer barrel (`index.ts`) re-exports over deep file paths when a barrel exists
+3. `import { New } from '@common/types'` — good (short, uses barrel)
+4. `import { New } from '@common/types/new.type'` — bad (unnecessarily deep when barrel re-exports it)
+
 Forbidden imports:
 
 1. Anything from `infra/**`
@@ -375,3 +407,4 @@ These mistakes are not obvious from the rules above:
 4. Turning infrastructure failures (timeouts, connection errors, SDK exceptions) into domain exceptions — translate them at the boundary
 5. Creating duplicate concepts with names like `Lead`, `LeadModel`, `LeadData`, and `LeadPayload` for the same business meaning — prefer one canonical name
 6. Placing a local infrastructure capability (hashing, token generation) in `gateways/` or `repositories/` — if the capability does not require network access or persistence, it belongs in `services/`
+7. Creating dedicated `CreateXData` or `UpdateXData` types for `create`/`update` method arguments — use `New<Model>` and `Partial<Model>` instead
