@@ -8,6 +8,10 @@
     "sourceMap": true, // Генерировать source maps для отладки
     "outDir": "./dist", // Папка для скомпилированных файлов
     "baseUrl": "./", // Базовая директория для путей
+    "paths": {
+      "@modules/*": ["src/modules/*"],
+      "@common/*": ["src/common/*"]
+    },
 
     "esModuleInterop": true, // Совместимость import/require с CommonJS
     "allowSyntheticDefaultImports": true, // Разрешить import X from '...' для модулей без default
