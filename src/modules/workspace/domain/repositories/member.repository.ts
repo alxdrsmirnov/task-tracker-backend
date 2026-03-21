@@ -1,10 +1,12 @@
 import type { New, Updatable } from '@common/types'
 import type { WorkspaceMember } from '../models/workspace-member'
 
-export interface WorkspaceMemberRepository {
+export interface MemberRepository {
   find(workspaceId: string, userId: string): Promise<WorkspaceMember | null>
 
   listByWorkspaceId(workspaceId: string): Promise<WorkspaceMember[]>
+
+  listByUserId(userId: string): Promise<WorkspaceMember[]>
 
   create(data: New<WorkspaceMember>): Promise<WorkspaceMember>
 
