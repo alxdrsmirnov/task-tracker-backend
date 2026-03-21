@@ -428,6 +428,62 @@ When deciding where a contract belongs, ask these questions in order:
 | HTTP API, webhook, SDK for third-party service | `gateways/` | `PaymentGateway` |
 | Crypto, hashing, token generation, encoding | `tools/` | `PasswordHasher` |
 
+## Implementation Naming
+
+Implementation classes in `infra/` must include the library or technology name instead of a generic `Impl` suffix.
+This makes explicit which dependency backs the contract and simplifies searching when multiple implementations exist.
+
+Pattern: `{ContractName}` (domain interface) → `{Entity}{Library}{ContractSuffix}` (infra class)
+
+### Repositories
+
+The technology folder (`infra/prisma/`, `infra/drizzle/`, etc.) already provides context, so the file name does not repeat it.
+
+| Domain interface | Implementation class | File path |
+|---|---|---|
+| `AuthUserRepository` | `AuthUserPrismaRepository` | `infra/prisma/auth-user.repository.ts` |
+| `TaskRepository` | `TaskPrismaRepository` | `infra/prisma/task.repository.ts` |
+
+### Gateways
+
+Same rule — the technology folder provides context.
+
+| Domain interface | Implementation class | File path |
+|---|---|---|
+| `StorageGateway` | `StorageS3Gateway` | `infra/s3/storage.gateway.ts` |
+| `ContactGateway` | `ContactAxiosGateway` | `infra/axios/contact.gateway.ts` |
+
+### Tools
+
+Tools have capability-based names without a fixed suffix, so the technology is part of the file name (mirrors the class name).
+
+| Domain interface | Implementation class | File path |
+|---|---|---|
+| `PasswordHasher` | `BcryptPasswordHasher` | `infra/bcrypt/bcrypt-password-hasher.ts` |
+| `TokenGenerator` | `JwtTokenGenerator` | `infra/jwt/jwt-token-generator.ts` |
+
+### Rules
+
+1. Never use `Impl` suffix — always name the specific technology
+2. For repositories and gateways: the library name goes between the entity name and the contract suffix (`AuthUser` + `Prisma` + `Repository`); the file name omits the technology because the parent folder already provides it
+3. For tools: the library becomes a prefix of the capability name (`Bcrypt` + `PasswordHasher`); the file name includes the technology because there is no fixed suffix to anchor on
+
+Bad:
+
+```ts
+export class AuthUserRepositoryImpl implements AuthUserRepository {}
+export class StorageGatewayImpl implements StorageGateway {}
+export class PasswordHasherImpl implements PasswordHasher {}
+```
+
+Good:
+
+```ts
+export class AuthUserPrismaRepository implements AuthUserRepository {}
+export class StorageS3Gateway implements StorageGateway {}
+export class BcryptPasswordHasher implements PasswordHasher {}
+```
+
 ## Import Rules
 
 Inside `src/modules/{moduleName}/domain/**`, prefer only these imports:

@@ -85,26 +85,52 @@ private async loadRelation(leadId: number): Promise<Relation> {
 
 ### When `T | null` is acceptable
 
-Only when `null` represents a meaningful business branch with a concrete result:
+Only when `null` drives a meaningful business branch — each branch has a concrete action or result:
 
 ```ts
+// Early return — null triggers the main flow
 const existing = await this.findExistingRelation(dto)
 if (existing) {
   return existing
 }
+
+// Different actions per branch
+const existing = await this.findExisting(dto)
+if (existing) {
+  await this.updateRelation(existing, dto)
+} else {
+  await this.createRelation(dto)
+}
 ```
 
-`return existing` is a real business outcome. This is NOT the same as `return` or `return undefined`.
+Both branches produce a real business outcome. This is NOT the same as `if (!x) return` / `return undefined`.
 
 ### Boolean predicates
 
-Use `boolean` only for explicit business predicates: `isDuplicate`, `shouldSyncPhone`.
-A predicate may choose between business branches, but must not exist only to justify `return` from `execute()`.
+Use `boolean` only for explicit business predicates that choose between business branches.
+
+Good — predicate selects a branch, both branches continue the scenario:
+
+```ts
+if (this.shouldSyncPhone(dto)) {
+  await this.syncPhone(dto)
+}
+await this.completeRegistration(dto)
+```
+
+Bad — predicate exists only to justify early `return`:
+
+```ts
+if (!this.isValidForProcessing(dto)) return
+```
+
+Here validation should happen inside a private method that throws a domain exception.
 
 ## Input Contract
 
 `execute()` accepts zero or one parameter.
-When `execute()` has a parameter, it must be a DTO class instance with `@ValidateDto()` on the method.
+When `execute()` has a parameter, it is typed as a DTO class with `@ValidateDto()` on the method.
+The caller may pass a plain object — `@ValidateDto()` converts it into a class instance via `plainToInstance`.
 When `execute()` has no parameters, `@ValidateDto()` is not needed.
 
 ### Rules
@@ -184,21 +210,20 @@ async create(client: Socket, data: CreateTaskWsPayload) {
 
 1. One public method: `execute()`
 2. `execute()` takes 0 or 1 parameter; when a parameter is present — it is a DTO class with `@ValidateDto()`
-3. One use case = one complete business scenario
+3. One use case = one complete business scenario; do not split without a clear business boundary
 4. `execute()` delegates to well-named private methods
 5. Private methods return required data or throw domain exceptions
-6. Do not split one scenario into multiple use cases without a clear business boundary
-7. Do not import another module's use case; use domain contracts, DI tokens, or events
-8. `private` by default; `protected` only when inheritance requires it
-9. Do not introduce `any`
+6. Do not import another module's use case; use domain contracts, DI tokens, or events
+7. `private` by default; `protected` only when inheritance requires it
+8. Do not introduce `any`
 
 ## Exception Rules
 
-- Use cases must not throw `HttpException` or `Error`
+- Throw only subclasses of `DomainException` — never `HttpException`, raw `Error`, or other base classes
 - Create a dedicated exception class for every domain failure
 - Class names describe the business problem, without `Exception` suffix
 - The error message lives inside the class, written in Russian
-- Store in `domain/exceptions/`; create the directory if it does not exist
+- Store in the current module's `domain/exceptions/`; create the directory if it does not exist
 
 Good names: `RelationAlreadyExists`, `TargetEntityNotFound`, `InvalidRelationSource`
 
@@ -219,6 +244,11 @@ Good: `validateCommand`, `loadTargetEntity`, `buildRelation`, `persistRelation`,
 Bad: `processData`, `handle`, `check`, `step1`, `runLogic`
 
 Do not add technical suffixes like `OrThrow`.
+
+### Method prefix conventions
+
+- `get` / `load` / `extract` / `resolve` — always return `T` or throw a domain exception
+- `find` — may return `T | null` when `null` drives a meaningful business branch
 
 ## Structure
 
@@ -266,10 +296,10 @@ Verify before finishing:
 - [ ] `execute()` reads as a business scenario, not implementation details
 - [ ] No `if (!x) return` chains — private methods return `T` or throw
 - [ ] Exceptions thrown inside private methods, not checked in `execute()`
-- [ ] `get` / `load` / `extract` / `resolve` methods return `T` or throw
-- [ ] Exceptions in `domain/exceptions/`, no `Exception` suffix
+- [ ] `get` / `load` / `extract` / `resolve` return `T` or throw; `find` may return `T | null`
+- [ ] Exceptions in module's `domain/exceptions/`, no `Exception` suffix
 - [ ] Exception messages in Russian, inside the class
-- [ ] No `HttpException`, no `Error`
+- [ ] Only `DomainException` subclasses — no `HttpException`, no raw `Error`
 - [ ] Method names describe business intent
 - [ ] `private` by default
 - [ ] No `any`
