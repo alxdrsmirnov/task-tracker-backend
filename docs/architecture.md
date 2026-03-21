@@ -36,7 +36,8 @@
 
 ```text
 users
-├── id (uuid), email, name, avatar_url
+├── id (uuid), email, first_name, last_name, avatar_url
+├── last_workspace_id (-> workspaces, nullable) — последний открытый workspace
 ├── created_at, updated_at
 
 user_credentials
@@ -118,6 +119,7 @@ erDiagram
     users ||--o{ workspace_members : ""
     workspaces ||--o{ workspace_members : ""
     users ||--o{ workspaces : "created_by"
+    users |o--o{ workspaces : "last_workspace_id"
     workspaces ||--o{ projects : "workspace_id"
     users ||--o{ projects : "created_by"
     projects ||--o{ sections : "project_id"
@@ -139,6 +141,10 @@ erDiagram
     users {
         uuid id PK
         varchar email UK
+        varchar first_name
+        varchar last_name
+        varchar avatar_url
+        uuid last_workspace_id FK
     }
     user_credentials {
         uuid id PK
@@ -714,6 +720,18 @@ export interface ProjectTask {
   taskId: string;
   sectionId: string | null;
   position: number;
+}
+
+// modules/user/domain/models/user.ts
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl: string;
+  lastWorkspaceId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
