@@ -5,6 +5,6 @@ export interface User {
   email: string
   avatarUrl: string
   lastWorkspaceId: string | null
-  createdAt: string
-  updatedAt: string
+  createdAt: Date
+  updatedAt: Date
 }
