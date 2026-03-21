@@ -8,7 +8,7 @@
 
 ## Структура модуля
 
-```
+```text
 modules/auth/
 ├── auth.module.ts
 ├── auth.http.controller.ts
@@ -33,14 +33,14 @@ modules/auth/
 │       └── auth-user.repository.ts
 │
 ├── use-cases/
-│   ├── register.case.ts
-│   ├── login.case.ts
+│   ├── sign-up.case.ts
+│   ├── sign-in.case.ts
 │   ├── logout.case.ts
 │   ├── logout-all.case.ts
 │   ├── refresh-tokens.case.ts
 │   └── dto/
-│       ├── register.dto.ts
-│       ├── login.dto.ts
+│       ├── sign-up.dto.ts
+│       ├── sign-in.dto.ts
 │       └── refresh-tokens.dto.ts
 │
 ├── strategies/
@@ -131,7 +131,7 @@ interface AuthUserRepository {
 ## Исключения
 
 | Исключение | Когда выбрасывается |
-|------------|---------------------|
+| ---------- | ------------------- |
 | `InvalidCredentials` | Неверный email или пароль при логине |
 | `EmailAlreadyExists` | Попытка регистрации с существующим email |
 | `InvalidRefreshToken` | Невалидный или истёкший refresh token |
@@ -140,11 +140,12 @@ interface AuthUserRepository {
 
 ## Use Cases
 
-### Register
+### SignUp
 
 Создание нового пользователя.
 
 **Поток:**
+
 1. Проверить, что email не занят
 2. Создать `User` (через репозиторий user модуля)
 3. Хешировать пароль
@@ -153,11 +154,12 @@ interface AuthUserRepository {
 6. Сохранить `RefreshToken`
 7. Вернуть `UserTokens`
 
-### Login
+### SignIn
 
 Аутентификация существующего пользователя.
 
 **Поток:**
+
 1. Найти `User` по email
 2. Найти `UserCredentials` по `userId`
 3. Сверить пароль с `passwordHash`
@@ -170,6 +172,7 @@ interface AuthUserRepository {
 Обновление access token по refresh token.
 
 **Поток:**
+
 1. Найти `RefreshToken` в БД
 2. Проверить, что не истёк
 3. Удалить старый `RefreshToken`
@@ -182,6 +185,7 @@ interface AuthUserRepository {
 Выход пользователя.
 
 **Поток:**
+
 1. Найти `RefreshToken` по токену
 2. Удалить `RefreshToken` из БД
 
@@ -190,6 +194,7 @@ interface AuthUserRepository {
 Выход со всех устройств.
 
 **Поток:**
+
 1. Найти `UserCredentials` по `userId`
 2. Удалить все `RefreshToken` по `userCredentialsId`
 
@@ -251,10 +256,10 @@ class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
 
 **Зависимость:** `auth` → `user` (однонаправленная)
 
-| Направление | Что импортируется | Для чего |
-|-------------|-------------------|----------|
-| `auth` → `user` | `User` (model) | Создание пользователя при регистрации |
-| `auth` → `user` | `UserRepository` (interface) | Поиск по email |
+| Направление     | Что импортируется            | Для чего                              |
+| --------------- | ---------------------------- | ------------------------------------- |
+| `auth` → `user` | `User` (model)               | Создание пользователя при регистрации |
+| `auth` → `user` | `UserRepository` (interface) | Поиск по email                        |
 
 **Важно:** `user` модуль не знает о `auth` и `UserCredentials`.
 
@@ -263,6 +268,7 @@ class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
 **Зависимость:** `ws` → `auth`
 
 При WebSocket handshake:
+
 1. Клиент отправляет access token в query params
 2. Gateway валидирует токен через `JwtStrategy`
 3. Сохраняет `userId` в `socket.data.userId`
@@ -272,7 +278,7 @@ class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
 ## HTTP Endpoints
 
 | Метод | Путь | Назначение |
-|-------|------|------------|
+| ----- | ---- | ---------- |
 | POST | `/auth/register` | Регистрация |
 | POST | `/auth/login` | Вход |
 | POST | `/auth/logout` | Выход |

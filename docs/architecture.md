@@ -34,7 +34,7 @@
 
 ## Схема БД
 
-```
+```text
 users
 ├── id (uuid), email, name, avatar_url
 ├── created_at, updated_at
@@ -201,7 +201,7 @@ erDiagram
 
 ## Структура папок
 
-```
+```text
 src/
 ├── main.ts
 ├── app.module.ts
@@ -256,14 +256,14 @@ src/
     │   │       └── auth-user.repository.ts
     │   │
     │   ├── use-cases/
-    │   │   ├── register.case.ts
-    │   │   ├── login.case.ts
+    │   │   ├── sign-up.case.ts
+    │   │   ├── sign-in.case.ts
     │   │   ├── refresh-tokens.case.ts
     │   │   ├── logout.case.ts
     │   │   ├── validate-token.case.ts
     │   │   └── dto/
-    │   │       ├── register.dto.ts
-    │   │       ├── login.dto.ts
+    │   │       ├── sign-up.dto.ts
+    │   │       ├── sign-in.dto.ts
     │   │       └── refresh-tokens.dto.ts
     │   │
     │   ├── strategies/
@@ -634,7 +634,7 @@ export class TaskWsController {
 
 ### Real-time поток событий
 
-```
+```text
 User Action → WS Gateway → WS Controller → Use Case → Repository (save)
                                               ↓
                                         EventEmitter
@@ -647,7 +647,7 @@ User Action → WS Gateway → WS Controller → Use Case → Repository (save)
 
 ### Типы событий
 
-```
+```text
 task.created      → activity (запись), notification (если assignee)
 task.updated      → activity (запись), ws broadcast
 task.completed    → activity, notification (assignee + creator)
@@ -784,7 +784,7 @@ export class CompleteTaskCase {
 ### Где нужны операции
 
 | Модуль | operations/ | Почему |
-|---|---|---|
+| --- | --- | --- |
 | task | да | Статусы, завершение, переоткрытие, назначение |
 | workspace | да | Проверки ролей участников |
 | notification, activity, attachment | нет | Чистый CRUD, нет бизнес-правил |
@@ -880,9 +880,9 @@ export class TaskModule {}
 5. project + sections — CRUD, структура (WS)
 6. task — CRUD, статусы, назначение, перемещение, подзадачи, комментарии (WS)
 7. activity — лента изменений (event-driven + WS чтение)
-9. notification — in-app + WS push (через BullMQ)
-10. file — загрузка вложений к задачам (REST)
-11. search — полнотекстовый поиск по задачам (WS)
+8. notification — in-app + WS push (через BullMQ)
+9. file — загрузка вложений к задачам (REST)
+10. search — полнотекстовый поиск по задачам (WS)
 
 ## Прочие правила
 
