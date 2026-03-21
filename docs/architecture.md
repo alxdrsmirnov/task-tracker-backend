@@ -45,13 +45,13 @@ user_credentials
 ├── password_hash
 
 refresh_tokens
-├── id (uuid), user_credentials_id (-> user_credentials)
+├── id (uuid), user_creds_id (-> user_credentials)
 ├── token, expires_at
 ├── created_at
 
 workspaces
-├── id (uuid), name, slug
-├── created_by (-> users), created_at
+├── id (uuid), name,
+├── creator_id (-> users), created_at, updated_at
 
 workspace_members                          — M2M junction: users <-> workspaces
 ├── workspace_id (-> workspaces) ┐ PK
@@ -118,7 +118,7 @@ erDiagram
     users ||--o| user_credentials : ""
     users ||--o{ workspace_members : ""
     workspaces ||--o{ workspace_members : ""
-    users ||--o{ workspaces : "created_by"
+    users ||--o{ workspaces : "creator_id"
     users |o--o{ workspaces : "last_workspace_id"
     workspaces ||--o{ projects : "workspace_id"
     users ||--o{ projects : "created_by"
@@ -156,7 +156,10 @@ erDiagram
     }
     workspaces {
         uuid id PK
-        uuid created_by FK
+        varchar name
+        uuid creator_id FK
+        timestamptz created_at
+        timestamptz updated_at
     }
     workspace_members {
         uuid workspace_id PK_FK

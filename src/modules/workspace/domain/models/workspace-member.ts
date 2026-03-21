@@ -1,6 +1,8 @@
+import type { WorkspaceMemberRole } from '../types'
+
 export interface WorkspaceMember {
-  id: string
   workspaceId: string
   userId: string
-  createdAt: string
+  role: WorkspaceMemberRole
+  joinedAt: Date
 }

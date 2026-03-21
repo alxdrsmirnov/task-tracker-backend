@@ -126,13 +126,16 @@ Methods in `repositories/` and `gateways/` that retrieve a single entity must fo
 
 Both patterns are valid. When generating new code, prefer `find*` (`findById`, `findOne`, `findBy`).
 
-Methods that return a collection always return `Promise<Model[]>` — an empty array when nothing matches, never `null`.
+Methods that return a collection always return `Promise<Model[]>` — an empty array when nothing matches, never `null`. **Name those methods with the `list*` prefix** (e.g. `listByWorkspaceId`, `listMembersInWorkspace`, `listForUser`). Use a suffix or middle phrase that states the business scope (workspace, user, filter key), not a generic `findAll` unless the domain truly has no narrower name.
+
+`search*` remains appropriate when the method’s intent is **search or filter by params** (a dedicated params type); it still returns `Promise<Model[]>` and never `null`.
 
 Bad:
 
 ```ts
 getById(id: number): Promise<Contact | null>
 findAll(): Promise<Contact[] | null>
+findByWorkspaceId(workspaceId: string): Promise<Member[]> // returns a list but uses find* — use list* instead
 ```
 
 Good:
@@ -140,6 +143,7 @@ Good:
 ```ts
 findById(id: number): Promise<Contact | null>
 getById(id: number): Promise<Contact>
+listByWorkspaceId(workspaceId: string): Promise<Member[]>
 search(params: ContactSearchParams): Promise<Contact[]>
 ```
 
@@ -250,7 +254,7 @@ Rules:
 2. Only for database or internal persistence access
 3. Methods should accept and return `models`, local supporting types from `types/`, primitive types, or shared types from `src/common/types`
 4. Never place implementation classes here
-5. Prefer method names that describe business persistence intent, such as `findById`, `create`, `search`, `update`, or `delete`
+5. Prefer method names that describe business persistence intent, such as `findById`, `list*` (for collections), `create`, `search`, `update`, or `delete`
 6. Do not expose ORM helpers, query builders, repository instances, or persistence result wrappers
 
 Naming:
