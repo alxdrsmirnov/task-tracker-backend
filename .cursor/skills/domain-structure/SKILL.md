@@ -120,7 +120,7 @@ create(data: Omit<New<Task>, 'completedAt'>): Promise<Task>
 Methods in `repositories/` and `gateways/` that retrieve a single entity must follow the `find` / `get` naming convention:
 
 | Prefix | Return type | Behavior when not found |
-|---|---|---|
+| --- | --- | --- |
 | `find*` | `Promise<Model \| null>` | Returns `null` |
 | `get*` | `Promise<Model>` | Throws a domain exception (e.g. `NotFound`) |
 
@@ -384,7 +384,7 @@ Structure:
 5. Section order:
 
 | Order | Header | Contents |
-|---|---|---|
+| --- | --- | --- |
 | — | _(no header)_ | `{Module}DomainDI` from `./di.tokens` |
 | 1 | `/** === Models === */` | Business entities from `models/` |
 | 2 | `/** === Operations === */` | Pure business rule functions from `models/operations/` |
@@ -427,7 +427,7 @@ When deciding where a contract belongs, ask these questions in order:
 3. Does it provide an infrastructure capability that can run entirely in-process? → `tools/`
 
 | Signal | Folder | Example |
-|---|---|---|
+| --- | --- | --- |
 | SQL, ORM, cache, file storage as persistence | `repositories/` | `AuthUserRepository` |
 | HTTP API, webhook, SDK for third-party service | `gateways/` | `PaymentGateway` |
 | Crypto, hashing, token generation, encoding | `tools/` | `PasswordHasher` |
@@ -444,7 +444,7 @@ Pattern: `{ContractName}` (domain interface) → `{Entity}{Library}{ContractSuff
 The technology folder (`infra/prisma/`, `infra/drizzle/`, etc.) already provides context, so the file name does not repeat it.
 
 | Domain interface | Implementation class | File path |
-|---|---|---|
+| --- | --- | --- |
 | `AuthUserRepository` | `AuthUserPrismaRepository` | `infra/prisma/auth-user.repository.ts` |
 | `TaskRepository` | `TaskPrismaRepository` | `infra/prisma/task.repository.ts` |
 
@@ -453,7 +453,7 @@ The technology folder (`infra/prisma/`, `infra/drizzle/`, etc.) already provides
 Same rule — the technology folder provides context.
 
 | Domain interface | Implementation class | File path |
-|---|---|---|
+| --- | --- | --- |
 | `StorageGateway` | `StorageS3Gateway` | `infra/s3/storage.gateway.ts` |
 | `ContactGateway` | `ContactAxiosGateway` | `infra/axios/contact.gateway.ts` |
 
@@ -462,7 +462,7 @@ Same rule — the technology folder provides context.
 Tools have capability-based names without a fixed suffix, so the technology is part of the file name (mirrors the class name).
 
 | Domain interface | Implementation class | File path |
-|---|---|---|
+| --- | --- | --- |
 | `PasswordHasher` | `BcryptPasswordHasher` | `infra/bcrypt/bcrypt-password-hasher.ts` |
 | `TokenGenerator` | `JwtTokenGenerator` | `infra/jwt/jwt-token-generator.ts` |
 

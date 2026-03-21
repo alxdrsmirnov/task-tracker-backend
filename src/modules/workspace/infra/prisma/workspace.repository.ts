@@ -7,7 +7,7 @@ import type { Workspace, WorkspaceRepository } from '@modules/workspace/domain'
 export class WorkspacePrismaRepository implements WorkspaceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  find(id: string): Promise<Workspace | null> {
+  findById(id: string): Promise<Workspace | null> {
     return this.prisma.workspace.findUnique({ where: { id } })
   }
 
