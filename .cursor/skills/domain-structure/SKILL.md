@@ -51,9 +51,7 @@ Rules for creation:
 3. `repositories/` is created only when the module needs database or persistence contracts
 4. `gateways/` is created only when the module needs external API contracts
 5. `tools/` is created only when the module needs infrastructure capability contracts that are neither persistence nor external system integrations
-6. `constants.ts` is created when the module has shared domain constants; keep it focused on domain values
-7. `utils` is created only when a narrow domain helper is truly needed and the logic does not belong to a model, type, contract, or use case; do not create by default
-8. Do not create `entities/` inside `domain/`; use `models/`
+6. Do not create `entities/` inside `domain/`; use `models/`
 
 ## Folder Rules
 
@@ -84,26 +82,35 @@ export interface AuthUserRepository {
 
 ### Contract method argument types
 
-For `create` and `update` methods in contract interfaces, use shared generic types instead of creating dedicated argument types:
+For `create` and `update` methods in contract interfaces, prefer shared generic types from `src/common/types`:
 
-1. For `create`: use `New<Model>` from `src/common/types` — it strips `id`, `createdAt`, and `updatedAt` from the model
-2. For `update`: use `id` + `Partial<Model>`, or just `Model` (the full entity when all fields are being replaced)
-3. Do not create dedicated types like `CreateUserData` or `UpdateUserData` for these methods
+- `New<T>` — strips system fields (`id`, `createdAt`, `updatedAt`) from the model; use for `create`
+- `Updatable<T>` — `Partial<New<T>>`; use for `update`
 
-Bad:
+These types are built on top of `SystemFields` — also in `src/common/types`.
 
-```ts
-create(data: CreateUserData): Promise<User>
-update(data: UpdateUserData): Promise<User>
-```
+1. For `create`: prefer `New<Model>`
+2. For `update`: prefer `id` + `Updatable<Model>`
+3. When `New<Model>` is not enough (model has extra server-side fields like `completedAt`), use `Omit<New<Model>, 'field'>` inline
+4. Dedicated types like `CreateUserData` or `UpdateUserData` are acceptable when generic composition becomes unreadable, but `New<Model>` and `Updatable<Model>` are preferred by default
 
-Good:
+Preferred:
 
 ```ts
 create(data: New<User>): Promise<User>
-update(id: string, data: Partial<User>): Promise<User>
-// or when the full entity is passed:
-update(user: User): Promise<User>
+update(id: string, data: Updatable<User>): Promise<User>
+```
+
+Acceptable when generic composition is too complex:
+
+```ts
+create(data: CreateUserData): Promise<User>
+```
+
+Edge case — extra server-side fields:
+
+```ts
+create(data: Omit<New<Task>, 'completedAt'>): Promise<Task>
 ```
 
 ### Contract method retrieval naming
@@ -181,7 +188,7 @@ Rules:
 
 1. Group related supporting types in one file when they belong to the same topic
 2. Do not move business entities here just because they are expressed as types
-3. Do not create `Create{Entity}Data` or `Update{Entity}Data` types for contract method arguments — use `New<Model>` and `Partial<Model>` (see "Contract method argument types")
+3. Prefer `New<Model>` and `Updatable<Model>` over dedicated `Create{Entity}Data` / `Update{Entity}Data` types for contract method arguments (see "Contract method argument types")
 
 Naming:
 
@@ -435,4 +442,4 @@ These mistakes are not obvious from the rules above:
 4. Turning infrastructure failures (timeouts, connection errors, SDK exceptions) into domain exceptions — translate them at the boundary
 5. Creating duplicate concepts with names like `Lead`, `LeadModel`, `LeadData`, and `LeadPayload` for the same business meaning — prefer one canonical name
 6. Placing a local infrastructure capability (hashing, token generation) in `gateways/` or `repositories/` — if the capability does not require network access or persistence, it belongs in `tools/`
-7. Creating dedicated `CreateXData` or `UpdateXData` types for `create`/`update` method arguments — use `New<Model>` and `Partial<Model>` instead
+7. Creating dedicated `CreateXData` or `UpdateXData` types when `New<Model>` or `Updatable<Model>` would suffice

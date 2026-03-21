@@ -798,8 +798,8 @@ export class CompleteTaskCase {
 export interface TaskRepository {
   findById(id: string): Promise<Task | null>;
   findByProject(projectId: string, filter?: TaskFilter): Promise<Task[]>;
-  create(data: NewTask): Promise<Task>;
-  update(id: string, data: Partial<Task>): Promise<Task>;
+  create(data: New<Task>): Promise<Task>;
+  update(id: string, data: Updatable<Task>): Promise<Task>;
   remove(id: string): Promise<void>;
 }
 
@@ -822,7 +822,7 @@ export class TaskRepositoryImpl implements TaskRepository {
     return this.prisma.task.findUnique({ where: { id } });
   }
 
-  async update(id: string, data: Partial<Task>): Promise<Task> {
+  async update(id: string, data: Updatable<Task>): Promise<Task> {
     return this.prisma.task.update({ where: { id }, data });
   }
   // ...
