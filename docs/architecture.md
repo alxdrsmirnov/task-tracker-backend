@@ -766,7 +766,8 @@ import { completeTask } from '../domain/operations/task.operations';
 
 export class CompleteTaskCase {
   constructor(
-    @Inject(TaskDI.REPOSITORY) private readonly taskRepo: TaskRepository,
+    @Inject(TaskDomainDI.TaskRepository)
+    private readonly taskRepo: TaskRepository,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -835,8 +836,8 @@ export class TaskRepositoryImpl implements TaskRepository {
 // modules/task/infra/task.infra.module.ts
 @Module({
   imports: [PrismaModule],
-  providers: [{ provide: TaskDI.REPOSITORY, useClass: TaskRepositoryImpl }],
-  exports: [TaskDI.REPOSITORY],
+  providers: [{ provide: TaskDomainDI.TaskRepository, useClass: TaskRepositoryImpl }],
+  exports: [TaskDomainDI.TaskRepository],
 })
 export class TaskInfraModule {}
 ```

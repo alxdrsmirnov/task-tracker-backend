@@ -34,14 +34,15 @@ Use this target shape for `src/modules/{moduleName}/domain/`:
 
 ```text
 domain/
-  index.ts
-  di.tokens.ts
-  models/
-  repositories/
-  gateways/
-  tools/
-  types/
-  exceptions/
+  index.ts              # required
+  di.tokens.ts          # when module has contracts
+  models/               # when module has business entities
+    operations/         # when module has business rules beyond CRUD
+  types/                # when module has supporting types or enums
+  repositories/         # when module needs persistence contracts
+  gateways/             # when module needs external API contracts
+  tools/                # when module needs in-process capability contracts
+  exceptions/           # when module needs domain errors
 ```
 
 Rules for creation:
@@ -58,6 +59,7 @@ Rules for creation:
 Before creating a new file in `domain/`, classify the artifact:
 
 - Business entity -> `models/`
+- Pure business rule function -> `models/operations/`
 - Supporting type or `enum` -> `types/`
 - Database or persistence contract -> `repositories/`
 - External system integration contract -> `gateways/`
@@ -168,6 +170,45 @@ Business entity checklist:
 Good fit: `relation.ts`, `lead.ts`, `task.ts`, `pizzeria.ts`
 
 Bad fit: `relation-search.types.ts`, `amo-response.ts`, `create-relation.dto.ts`
+
+#### `models/operations/`
+
+Store pure functions that encode business rules over domain models.
+
+Operations are immutable pure functions. They accept `Readonly<T>`, return a new object, and never mutate the input. They have no side effects except throwing domain exceptions.
+
+If an operation changes model data, it returns the full model (`T`), not a partial object.
+
+Create `models/operations/` only when the module has business rules that go beyond simple CRUD.
+
+Rules:
+
+1. One file per model or topic: `{entity}.operations.ts`
+2. Functions accept `Readonly<Model>` and return `Model` or a primitive
+3. No dependencies on repositories, gateways, tools, or any injected services
+4. Domain exceptions are allowed
+5. No side effects beyond throwing exceptions
+
+Example:
+
+```ts
+export function completeTask(task: Readonly<Task>): Task {
+  if (task.status === 'completed') {
+    throw new TaskAlreadyCompleted(task.id)
+  }
+  return { ...task, status: 'completed', completedAt: new Date() }
+}
+
+export function isOverdue(task: Readonly<Task>): boolean {
+  return task.dueDate !== null
+    && task.status !== 'completed'
+    && task.dueDate < new Date()
+}
+```
+
+Good fit: status transitions, role assertions, business predicates
+
+Bad fit: data fetching, persistence, anything requiring DI
 
 ### `types/`
 
@@ -292,7 +333,7 @@ Rules:
 Naming:
 
 - File: `{error-name}.ts` in `kebab-case` (e.g. `relation-not-found.ts`, `form-not-linked.ts`)
-- Class: `{ErrorName} extends DomainException` (e.g. `RelationNotFound`, `FormNotLinked`)
+- Class: `{ErrorName} extends DomainException` (e.g. `RelationNotFound`, `FormNotLinked`); import `DomainException` from `src/common/exceptions`
 
 Good fit: `relation-not-found.ts`, `form-not-linked.ts`, `interview-date-not-found.ts`
 
@@ -342,11 +383,12 @@ Structure:
 |---|---|---|
 | — | _(no header)_ | `{Module}DomainDI` from `./di.tokens` |
 | 1 | `/** === Models === */` | Business entities from `models/` |
-| 2 | `/** === Repositories === */` | Persistence contracts from `repositories/` |
-| 3 | `/** === Gateways === */` | External integration contracts from `gateways/` |
-| 4 | `/** === Tools === */` | Infrastructure capability contracts from `tools/` |
-| 5 | `/** === Types === */` | Supporting types from `types/` |
-| 6 | `/** === Exceptions === */` | Domain exceptions from `exceptions/` |
+| 2 | `/** === Operations === */` | Pure business rule functions from `models/operations/` |
+| 3 | `/** === Repositories === */` | Persistence contracts from `repositories/` |
+| 4 | `/** === Gateways === */` | External integration contracts from `gateways/` |
+| 5 | `/** === Tools === */` | Infrastructure capability contracts from `tools/` |
+| 6 | `/** === Types === */` | Supporting types from `types/` |
+| 7 | `/** === Exceptions === */` | Domain exceptions from `exceptions/` |
 
 Example:
 
