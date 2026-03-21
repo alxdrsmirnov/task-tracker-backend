@@ -106,6 +106,34 @@ update(id: string, data: Partial<User>): Promise<User>
 update(user: User): Promise<User>
 ```
 
+### Contract method retrieval naming
+
+Methods in `repositories/` and `gateways/` that retrieve a single entity must follow the `find` / `get` naming convention:
+
+| Prefix | Return type | Behavior when not found |
+|---|---|---|
+| `find*` | `Promise<Model \| null>` | Returns `null` |
+| `get*` | `Promise<Model>` | Throws a domain exception (e.g. `NotFound`) |
+
+Both patterns are valid. When generating new code, prefer `find*` (`findById`, `findOne`, `findBy`).
+
+Methods that return a collection always return `Promise<Model[]>` — an empty array when nothing matches, never `null`.
+
+Bad:
+
+```ts
+getById(id: number): Promise<Contact | null>
+findAll(): Promise<Contact[] | null>
+```
+
+Good:
+
+```ts
+findById(id: number): Promise<Contact | null>
+getById(id: number): Promise<Contact>
+search(params: ContactSearchParams): Promise<Contact[]>
+```
+
 ### `models/`
 
 Store only business entities.

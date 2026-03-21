@@ -103,13 +103,14 @@ A predicate may choose between business branches, but must not exist only to jus
 
 ## Input Contract
 
-`execute()` accepts exactly one parameter — a DTO class instance.
-`@ValidateDto()` decorator is required on `execute()`.
+`execute()` accepts zero or one parameter.
+When `execute()` has a parameter, it must be a DTO class instance with `@ValidateDto()` on the method.
+When `execute()` has no parameters, `@ValidateDto()` is not needed.
 
 ### Rules
 
-- `execute()` always takes exactly 1 parameter: `dto: XxxDto`
-- `@ValidateDto()` is required — it validates the DTO before the method body runs
+- `execute()` takes 0 or 1 parameter; when present — `dto: XxxDto`
+- `@ValidateDto()` is required only when `execute()` has a parameter
 - DTO must be a **class** (not an interface or type alias) — `Reflect.getMetadata` requires a runtime class
 - DTO fields use `class-validator` decorators (`@IsString()`, `@IsEmail()`, `@MinLength()`, etc.)
 - DTO files live in `use-cases/dto/`, named `{case-name}.dto.ts`
@@ -182,7 +183,7 @@ async create(client: Socket, data: CreateTaskWsPayload) {
 ## Core Rules
 
 1. One public method: `execute()`
-2. `execute()` takes exactly 1 parameter — a DTO class; `@ValidateDto()` is required
+2. `execute()` takes 0 or 1 parameter; when a parameter is present — it is a DTO class with `@ValidateDto()`
 3. One use case = one complete business scenario
 4. `execute()` delegates to well-named private methods
 5. Private methods return required data or throw domain exceptions
@@ -259,9 +260,9 @@ When editing an existing use case:
 
 Verify before finishing:
 
-- [ ] `execute()` takes exactly 1 parameter — a DTO class
-- [ ] `@ValidateDto()` is applied to `execute()`
-- [ ] DTO is in `use-cases/dto/`, fields have `class-validator` decorators
+- [ ] `execute()` takes 0 or 1 parameter
+- [ ] If `execute()` has a parameter: it is a DTO class, `@ValidateDto()` is applied, DTO is in `use-cases/dto/` with `class-validator` decorators
+- [ ] If `execute()` has no parameters: no `@ValidateDto()`
 - [ ] `execute()` reads as a business scenario, not implementation details
 - [ ] No `if (!x) return` chains — private methods return `T` or throw
 - [ ] Exceptions thrown inside private methods, not checked in `execute()`

@@ -7,13 +7,13 @@ disable-model-invocation: true
 
 ## Workflow
 
-1. Analyze repo state: `git status`, `git diff`, `git log --oneline -5`
+1. Analyze repo state: `git status`, `git status -s`, `git diff --stat`, `git diff --name-status`, `git log --oneline -5`
 2. Generate 7-10 message options in format `{type}({scope}): {Описание на русском в прошедшем времени}`
 3. Ask the user to choose one option.
 4. Prefer the `AskQuestion` tool with a single-choice question and labels prefixed as `1.`, `2.`, `3.`.
 5. If `AskQuestion` is unavailable, show a plain numbered list in chat and wait for the selected number.
 6. Treat the user's choice as confirmation for `git commit`.
-7. Stage relevant changes and run `git commit` with the chosen message.
+7. Stage all changes with `git add .` and run `git commit` with the chosen message.
 8. Report the result and current branch status.
 
 ## Commit Message Format
@@ -34,18 +34,19 @@ Use past tense that describes completed work, and start the description after `:
 
 **Scope** (prefer from project structure):
 
-- `amo`, `api`, `catalog`, `maps`, `pyrus`, `relation`, `app`, `health-check`, `settings`
+- `amo`, `api`, `catalog`, `pyrus`, `relation`, `app`, `health-check`, `settings`
 - `deps` — для `package.json`, `package-lock.json`
 - If no match, use the nearest meaningful changed path
 
 ## Rules
 
-1. Do not push. Push is handled by the separate `git-push` skill.
-2. Do not create MR or PR links.
-3. Do not commit secrets or `.env`-like files unless the user explicitly asks.
-4. If there is nothing to commit, say so and stop.
-5. Do not auto-pick a message if the user has not selected one.
-6. If the user rejects all options, generate a new set of options instead of committing.
+1. Always stage all changes with `git add .` before commit.
+2. Do not push. Push is handled by the separate `git-push` skill.
+3. Do not create MR or PR links.
+4. Do not commit secrets or `.env`-like files unless the user explicitly asks.
+5. If there is nothing to commit, say so and stop.
+6. Do not auto-pick a message if the user has not selected one.
+7. If the user rejects all options, generate a new set of options instead of committing.
 
 ## Examples
 
@@ -59,18 +60,24 @@ Use past tense that describes completed work, and start the description after `:
 
 ## Output Format
 
-Before commit:
+Before commit — show changed files and brief summary:
 
 ```text
+Изменённые файлы:
+{список из git status -s и git diff --stat: путь, статус (A/M/D/??), +N/-M строк}
+
 Выбери название коммита:
 1. {message_1}
 2. {message_2}
 3. {message_3}
 ```
 
-After successful commit:
+After successful commit — show result and file stats:
 
 ```text
 ✓ Коммит: {message}
 ✓ Хэш: {hash}
+
+Файлы:
+{вывод git show --stat HEAD — путь, +N/-M}
 ```
