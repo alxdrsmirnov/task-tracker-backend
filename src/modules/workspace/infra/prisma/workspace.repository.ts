@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
+import { parse } from 'zod'
 import { PrismaService } from '@common/infra/prisma'
 import { WorkspaceSchema } from '../schemas'
-import { parse } from 'zod'
 import type { Workspace, WorkspaceRepository } from '@modules/workspace/domain'
 import type { New } from '@common/types'
 

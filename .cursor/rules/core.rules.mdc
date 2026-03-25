@@ -35,3 +35,4 @@ alwaysApply: true
 ## Documentation
 
 - Do not create documentation files unless explicitly requested.
+- Code is the source of truth — never write or refactor code based on `docs/` content. Documentation may be outdated; always rely on the actual codebase.
