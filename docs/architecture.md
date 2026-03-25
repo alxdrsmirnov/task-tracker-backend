@@ -249,7 +249,7 @@ src/
     │   │   ├── di.tokens.ts
     │   │   ├── models/
     │   │   │   ├── user-credentials.ts      # userId, passwordHash
-    │   │   │   └── refresh-token.ts         # userCredentialsId, token, expiresAt
+    │   │   │   └── refresh-token.ts         # userCredsId, token, expiresAt
     │   │   ├── types/
     │   │   │   └── auth.types.ts            # UserTokens, JwtPayload
     │   │   ├── repositories/

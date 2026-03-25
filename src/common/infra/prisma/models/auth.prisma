@@ -1,0 +1,16 @@
+model UserCredentials {
+  id            String         @id @default(uuid())
+  userId        String         @map("user_id")
+  passwordHash  String         @map("password_hash")
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id          String @id @default(uuid())
+  userCredsId String @map("user_creds_id")
+  token       String
+  expiresAt   String @map("expires_at")
+  createdAt   String @map("created_at")
+
+  userCredentials UserCredentials @relation(fields: [userCredsId], references: [id], onDelete: Cascade)
+}

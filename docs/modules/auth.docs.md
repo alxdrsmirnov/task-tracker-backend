@@ -73,7 +73,7 @@ interface UserCredentials {
 ```typescript
 interface RefreshToken {
   id: string;                  // UUID
-  userCredentialsId: string;   // FK → UserCredentials
+  userCredsId: string;   // FK → UserCredentials
   token: string;               // hashed refresh token
   expiresAt: Date;
   createdAt: Date;
@@ -122,7 +122,7 @@ interface AuthUserRepository {
   findRefreshToken(token: string): Promise<RefreshToken | null>;
   createRefreshToken(data: New<RefreshToken>): Promise<RefreshToken>;
   deleteRefreshToken(token: string): Promise<void>;
-  deleteAllUserRefreshTokens(userCredentialsId: string): Promise<void>;
+  deleteAllUserRefreshTokens(userCredsId: string): Promise<void>;
 }
 ```
 
@@ -196,7 +196,7 @@ interface AuthUserRepository {
 **Поток:**
 
 1. Найти `UserCredentials` по `userId`
-2. Удалить все `RefreshToken` по `userCredentialsId`
+2. Удалить все `RefreshToken` по `userCredsId`
 
 ---
 
