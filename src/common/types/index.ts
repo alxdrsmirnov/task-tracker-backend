@@ -5,4 +5,4 @@ export type New<T> = Omit<T, SystemFields> & {
   updatedAt?: Date
 }
 
-export type Updatable<T> = Partial<New<T>>
+export type Updatable<T extends { id: unknown }> = Partial<New<T>> & Pick<T, 'id'>

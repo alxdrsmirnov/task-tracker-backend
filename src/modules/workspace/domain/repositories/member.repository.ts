@@ -1,4 +1,4 @@
-import type { New, Updatable } from '@common/types'
+import type { New } from '@common/types'
 import type { WorkspaceMember } from '../models/workspace-member'
 
 export interface MemberRepository {
@@ -12,7 +12,7 @@ export interface MemberRepository {
 
   update(
     ids: { workspaceId: string; userId: string },
-    data: Updatable<WorkspaceMember>
+    data: Omit<WorkspaceMember, 'workspaceId' | 'userId'>
   ): Promise<WorkspaceMember>
 
   delete(workspaceId: string, userId: string): Promise<void>

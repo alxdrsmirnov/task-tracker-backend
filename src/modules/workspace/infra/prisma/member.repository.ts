@@ -33,7 +33,7 @@ export class MemberPrismaRepository implements MemberRepository {
 
   async update(
     ids: { workspaceId: string; userId: string },
-    data: Pick<WorkspaceMember, 'role'>
+    data: Omit<WorkspaceMember, 'workspaceId' | 'userId'>
   ): Promise<WorkspaceMember> {
     const { workspaceId, userId } = ids
     const updated = await this.prisma.workspaceMember.update({
