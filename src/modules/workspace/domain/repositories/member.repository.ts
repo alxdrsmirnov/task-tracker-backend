@@ -11,8 +11,7 @@ export interface MemberRepository {
   create(data: New<WorkspaceMember>): Promise<WorkspaceMember>
 
   update(
-    workspaceId: string,
-    userId: string,
+    ids: { workspaceId: string; userId: string },
     data: Updatable<WorkspaceMember>
   ): Promise<WorkspaceMember>
 

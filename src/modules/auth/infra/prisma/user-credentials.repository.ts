@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { parse } from 'zod'
 import { PrismaService } from '@common/infra/prisma'
-import { UserCredentialsSchema } from '../schemas/user-credentials.schema'
+import { UserCredentialsSchema } from '../schemas'
 import type { UserCredentials } from '@modules/auth/domain'
 import type { UserCredsRepository } from '@modules/auth/domain'
 import type { New } from '@common/types'

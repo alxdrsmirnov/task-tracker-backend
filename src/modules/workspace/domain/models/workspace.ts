@@ -1,7 +1,7 @@
 export interface Workspace {
   id: string
   name: string
-  creatorId: string // ID юзера - создателя
+  creatorId: string
   createdAt: Date
   updatedAt: Date
 }

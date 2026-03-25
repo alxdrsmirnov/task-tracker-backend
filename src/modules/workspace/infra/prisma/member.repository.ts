@@ -1,39 +1,46 @@
 import { Injectable } from '@nestjs/common'
+import { parse } from 'zod'
 import { PrismaService } from '@common/infra/prisma'
-import type { New, Updatable } from '@common/types'
+import { WorkspaceMemberSchema } from '../schemas'
 import type { MemberRepository, WorkspaceMember } from '@modules/workspace/domain'
+import type { New } from '@common/types'
 
 @Injectable()
 export class MemberPrismaRepository implements MemberRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  find(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
-    return this.prisma.workspaceMember.findUnique({
+  async find(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
+    const row = await this.prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId, userId } }
     })
+    return row ? parse(WorkspaceMemberSchema, row) : null
   }
 
-  listByWorkspaceId(workspaceId: string): Promise<WorkspaceMember[]> {
-    return this.prisma.workspaceMember.findMany({ where: { workspaceId } })
+  async listByWorkspaceId(workspaceId: string): Promise<WorkspaceMember[]> {
+    const rows = await this.prisma.workspaceMember.findMany({ where: { workspaceId } })
+    return rows.map((row) => parse(WorkspaceMemberSchema, row))
   }
 
-  listByUserId(userId: string): Promise<WorkspaceMember[]> {
-    return this.prisma.workspaceMember.findMany({ where: { userId } })
+  async listByUserId(userId: string): Promise<WorkspaceMember[]> {
+    const rows = await this.prisma.workspaceMember.findMany({ where: { userId } })
+    return rows.map((row) => parse(WorkspaceMemberSchema, row))
   }
 
-  create(data: New<WorkspaceMember>): Promise<WorkspaceMember> {
-    return this.prisma.workspaceMember.create({ data })
+  async create(data: New<WorkspaceMember>): Promise<WorkspaceMember> {
+    const created = await this.prisma.workspaceMember.create({ data })
+    return parse(WorkspaceMemberSchema, created)
   }
 
-  update(
-    workspaceId: string,
-    userId: string,
-    data: Updatable<WorkspaceMember>
+  async update(
+    ids: { workspaceId: string; userId: string },
+    data: Pick<WorkspaceMember, 'role'>
   ): Promise<WorkspaceMember> {
-    return this.prisma.workspaceMember.update({
+    const { workspaceId, userId } = ids
+    const updated = await this.prisma.workspaceMember.update({
       where: { workspaceId_userId: { workspaceId, userId } },
       data
     })
+    return parse(WorkspaceMemberSchema, updated)
   }
 
   async delete(workspaceId: string, userId: string): Promise<void> {
