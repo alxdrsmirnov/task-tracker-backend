@@ -1,11 +1,11 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { DtoValidationFailedFilter } from './common/filters'
+import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/filters'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
-  app.useGlobalFilters(new DtoValidationFailedFilter())
+  app.useGlobalFilters(new DomainExceptionFilter(), new DtoValidationFailedFilter())
 
   await app.listen(process.env.PORT ?? 3000)
 }
