@@ -10,10 +10,7 @@ export interface MemberRepository {
 
   create(data: New<WorkspaceMember>): Promise<WorkspaceMember>
 
-  update(
-    ids: { workspaceId: string; userId: string },
-    data: Omit<WorkspaceMember, 'workspaceId' | 'userId'>
-  ): Promise<WorkspaceMember>
+  update(member: WorkspaceMember): Promise<WorkspaceMember>
 
   delete(workspaceId: string, userId: string): Promise<void>
 }

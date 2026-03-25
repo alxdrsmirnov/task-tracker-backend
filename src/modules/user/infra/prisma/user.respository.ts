@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '@common/infra/prisma'
-import type { New, Updatable } from '@common/types'
 import type { User, UserRepository } from '@modules/user/domain'
+import type { New } from '@common/types'
 
 @Injectable()
 export class UserPrismaRepository implements UserRepository {
@@ -19,7 +19,8 @@ export class UserPrismaRepository implements UserRepository {
     return this.prisma.user.create({ data })
   }
 
-  update(id: string, data: Updatable<User>): Promise<User> {
+  update(user: User): Promise<User> {
+    const { id, ...data } = user
     return this.prisma.user.update({ where: { id }, data })
   }
 

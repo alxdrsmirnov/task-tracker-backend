@@ -1,4 +1,4 @@
-import type { New, Updatable } from '@common/types'
+import type { New } from '@common/types'
 import type { User } from '../models/user'
 
 export interface UserRepository {
@@ -8,7 +8,7 @@ export interface UserRepository {
 
   create(data: New<User>): Promise<User>
 
-  update(id: string, data: Updatable<User>): Promise<User>
+  update(user: User): Promise<User>
 
   delete(id: string): Promise<void>
 }

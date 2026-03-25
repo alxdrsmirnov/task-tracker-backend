@@ -3,7 +3,7 @@ import { PrismaService } from '@common/infra/prisma'
 import { WorkspaceSchema } from '../schemas'
 import { parse } from 'zod'
 import type { Workspace, WorkspaceRepository } from '@modules/workspace/domain'
-import type { New, Updatable } from '@common/types'
+import type { New } from '@common/types'
 
 @Injectable()
 export class WorkspacePrismaRepository implements WorkspaceRepository {
@@ -19,7 +19,7 @@ export class WorkspacePrismaRepository implements WorkspaceRepository {
     return parse(WorkspaceSchema, created)
   }
 
-  async update(workspace: Updatable<Workspace>): Promise<Workspace> {
+  async update(workspace: Workspace): Promise<Workspace> {
     const { id, ...data } = workspace
     const updated = await this.prisma.workspace.update({ where: { id }, data })
     return parse(WorkspaceSchema, updated)

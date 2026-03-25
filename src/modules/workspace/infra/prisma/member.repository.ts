@@ -31,11 +31,9 @@ export class MemberPrismaRepository implements MemberRepository {
     return parse(WorkspaceMemberSchema, created)
   }
 
-  async update(
-    ids: { workspaceId: string; userId: string },
-    data: Omit<WorkspaceMember, 'workspaceId' | 'userId'>
-  ): Promise<WorkspaceMember> {
-    const { workspaceId, userId } = ids
+  async update(member: WorkspaceMember): Promise<WorkspaceMember> {
+    const { workspaceId, userId, ...data } = member
+
     const updated = await this.prisma.workspaceMember.update({
       where: { workspaceId_userId: { workspaceId, userId } },
       data
