@@ -41,9 +41,7 @@ export class UserCredsPrismaRepository implements UserCredsRepository {
         passwordHash,
         ...(refreshTokens.length
           ? {
-              refreshTokens: {
-                create: refreshTokens
-              }
+              refreshTokens: { create: refreshTokens }
             }
           : {})
       },
