@@ -3,25 +3,25 @@ name: Auth Module Implementation
 overview: Реализация полного HTTP auth модуля (SignUp, SignIn, RefreshTokens, Logout) с JWT access/refresh токенами, bcrypt хешированием и чистой доменной архитектурой.
 todos:
   - id: deps
-    content: "Phase 1: Установить bcrypt, обновить .env.example, добавить default для avatarUrl в Prisma"
+    content: 'Phase 1: Установить bcrypt, обновить .env.example'
     status: pending
   - id: domain
-    content: "Phase 2: Domain layer — tools (PasswordHasher, TokenGenerator), types (UserTokens, JwtPayload), exceptions (3 шт.), обновить di.tokens + index"
+    content: 'Phase 2: Domain layer — tools (PasswordHasher, TokenGenerator), types (UserTokens, JwtPayload), exceptions (3 шт.), обновить di.tokens + index'
     status: pending
   - id: infra
-    content: "Phase 3: Infrastructure — BcryptPasswordHasher, JwtTokenGenerator, обновить AuthInfraModule (JwtModule + providers)"
+    content: 'Phase 3: Infrastructure — BcryptPasswordHasher, JwtTokenGenerator, обновить AuthInfraModule (JwtModule + providers)'
     status: pending
   - id: use-cases
-    content: "Phase 4: Use cases — SignUpCase, SignInCase, RefreshTokensCase, LogoutCase + 4 DTO"
+    content: 'Phase 4: Use cases — SignUpCase, SignInCase, RefreshTokensCase, LogoutCase + 4 DTO'
     status: pending
   - id: controller
-    content: "Phase 5: AuthHttpController — 4 POST эндпоинта"
+    content: 'Phase 5: AuthHttpController — 4 POST эндпоинта'
     status: pending
   - id: filter
-    content: "Phase 6: DomainExceptionFilter в common/filters с реестром маппингов"
+    content: 'Phase 6: DomainExceptionFilter в common/filters с реестром маппингов'
     status: pending
   - id: integration
-    content: "Phase 7: Модульная интеграция — UserModule exports, AuthModule imports/providers, AppModule, main.ts"
+    content: 'Phase 7: Модульная интеграция — UserModule exports, AuthModule imports/providers, AppModule, main.ts'
     status: pending
 isProject: false
 ---
@@ -55,11 +55,6 @@ npm install -D @types/bcrypt
 - `JWT_SECRET` — секрет для подписи access-токенов
 - `JWT_ACCESS_EXPIRES_IN` — время жизни access-токена (напр. `15m`)
 - `REFRESH_TOKEN_TTL_DAYS` — время жизни refresh-токена в днях (напр. `7`)
-
-**1.3 Prisma-схема** — `[user.prisma](src/common/infra/prisma/models/user.prisma)`:
-
-- Добавить `@default("")` для `avatarUrl` (сейчас обязательное поле без дефолта — регистрация без аватара упадёт)
-- Сгенерировать и применить миграцию
 
 ## Phase 2 — Domain layer
 
@@ -108,13 +103,11 @@ export interface JwtPayload {
 
 **2.3 Exceptions** — 3 файла в `domain/exceptions/`:
 
-
 | Файл                       | Класс                 | Сообщение                                        |
 | -------------------------- | --------------------- | ------------------------------------------------ |
 | `email-already-exists.ts`  | `EmailAlreadyExists`  | Пользователь с email {email} уже зарегистрирован |
 | `invalid-credentials.ts`   | `InvalidCredentials`  | Неверный email или пароль                        |
 | `invalid-refresh-token.ts` | `InvalidRefreshToken` | Недействительный refresh token                   |
-
 
 Все наследуют `DomainException`, сообщения на русском, без HTTP-деталей.
 
@@ -124,7 +117,7 @@ export interface JwtPayload {
 export const AuthDomainDI = {
   UserCredsRepository: Symbol('USER_CREDENTIALS_REPOSITORY'),
   PasswordHasher: Symbol('PASSWORD_HASHER'),
-  TokenGenerator: Symbol('TOKEN_GENERATOR'),
+  TokenGenerator: Symbol('TOKEN_GENERATOR')
 } as const
 ```
 
@@ -183,7 +176,7 @@ DTO: `email`, `password`
 1. loadUser(dto.email)                 // UserRepository.findByEmail → throw InvalidCredentials
 2. loadCredentials(user.id)            // UserCredsRepository.findByUserId → throw InvalidCredentials
 3. verifyPassword(dto.password, creds) // PasswordHasher.verify → throw InvalidCredentials
-4. generateAndSaveTokens(user, creds)  // TokenGenerator + UserCredsRepository.update
+4. createTokens(user, creds)            // TokenGenerator + UserCredsRepository.update
 5. return UserTokens
 ```
 
@@ -215,14 +208,12 @@ DTO: `refreshToken`
 
 Обновить `[auth.http.controller.ts](src/modules/auth/auth.http.controller.ts)` — 4 POST эндпоинта:
 
-
 | Endpoint             | Use Case            | Body               | Response     |
 | -------------------- | ------------------- | ------------------ | ------------ |
 | `POST /auth/sign-up` | `SignUpCase`        | `SignUpDto`        | `UserTokens` |
 | `POST /auth/sign-in` | `SignInCase`        | `SignInDto`        | `UserTokens` |
 | `POST /auth/refresh` | `RefreshTokensCase` | `RefreshTokensDto` | `UserTokens` |
 | `POST /auth/logout`  | `LogoutCase`        | `LogoutDto`        | `void` (204) |
-
 
 ## Phase 6 — DomainExceptionFilter
 
@@ -238,9 +229,9 @@ DTO: `refreshToken`
 **6.2 Регистрация маппингов в `auth.module.ts`:**
 
 ```typescript
-DomainExceptionFilter.register(EmailAlreadyExists, HttpStatus.CONFLICT)        // 409
-DomainExceptionFilter.register(InvalidCredentials, HttpStatus.UNAUTHORIZED)    // 401
-DomainExceptionFilter.register(InvalidRefreshToken, HttpStatus.UNAUTHORIZED)   // 401
+DomainExceptionFilter.register(EmailAlreadyExists, HttpStatus.CONFLICT) // 409
+DomainExceptionFilter.register(InvalidCredentials, HttpStatus.UNAUTHORIZED) // 401
+DomainExceptionFilter.register(InvalidRefreshToken, HttpStatus.UNAUTHORIZED) // 401
 ```
 
 **6.3 Подключить в `[main.ts](src/main.ts)`:**
@@ -313,9 +304,7 @@ src/modules/auth/
 
 - `src/common/filters/domain-exception.filter.ts` (new)
 - `src/common/filters/index.ts` (update)
-- `src/common/infra/prisma/models/user.prisma` (update — default avatarUrl)
 - `src/modules/user/user.module.ts` (update — export)
 - `src/app.module.ts` (update — import AuthModule)
 - `src/main.ts` (update — add DomainExceptionFilter)
 - `.env.example` (update — JWT vars)
-

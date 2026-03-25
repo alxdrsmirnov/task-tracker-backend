@@ -3,7 +3,7 @@ export interface User {
   firstName: string
   lastName: string
   email: string
-  avatarUrl: string
+  avatarUrl: string | null
   lastWorkspaceId: string | null
   createdAt: Date
   updatedAt: Date

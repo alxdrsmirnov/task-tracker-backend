@@ -3,7 +3,7 @@ model User {
   firstName       String   @map("first_name")
   lastName        String   @map("last_name")
   email           String   @unique
-  avatarUrl       String   @map("avatar_url")
+  avatarUrl       String?  @map("avatar_url")
   lastWorkspaceId String?  @map("last_workspace_id")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
