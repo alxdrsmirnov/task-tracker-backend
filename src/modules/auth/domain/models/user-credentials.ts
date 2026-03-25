@@ -6,8 +6,7 @@ export interface UserCredentials {
 }
 
 export interface RefreshToken {
-  id: string
-  token: string
+  value: string
   expiresAt: Date
   createdAt: Date
 }

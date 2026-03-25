@@ -1,4 +1,3 @@
 export const AuthDomainDI = {
-  UserCredentialsRepository: Symbol('USER_CREDENTIALS_REPOSITORY'),
-  RefreshTokenRepository: Symbol('REFRESH_TOKEN_REPOSITORY')
+  UserCredsRepository: Symbol('USER_CREDENTIALS_REPOSITORY')
 } as const
