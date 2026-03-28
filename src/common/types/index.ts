@@ -1,6 +1,2 @@
-export type SystemFields = 'id' | 'createdAt' | 'updatedAt'
-
-export type New<T> = Omit<T, SystemFields> & {
-  createdAt?: Date
-  updatedAt?: Date
-}
+export type { New } from './generics'
+export type { TransactionRunner } from './trx-runner'

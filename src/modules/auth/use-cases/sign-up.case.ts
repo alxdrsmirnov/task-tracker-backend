@@ -1,22 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/decorators'
+import { CommonDI } from '@common/di.tokens'
+import { UserDomainDI } from '@modules/user/domain'
+import { AuthDomainDI, EmailAlreadyExists } from '../domain'
+import { WorkspaceDomainDI, WorkspaceMemberRole } from '@modules/workspace/domain'
+import type { PasswordHasher, TokenGenerator, UserCredsRepository, UserTokens } from '../domain'
+import type { Workspace, WorkspaceRepository, MemberRepository } from '@modules/workspace/domain'
+import type { User, UserRepository } from '@modules/user/domain'
+import type { TransactionRunner } from '@common/types'
 import { SignUpDto } from './dto/sign-up.dto'
-import {
-  AuthDomainDI,
-  EmailAlreadyExists,
-  type UserTokens,
-  type PasswordHasher,
-  type TokenGenerator,
-  type UserCredsRepository
-} from '@modules/auth/domain'
-import { UserDomainDI, type User, type UserRepository } from '@modules/user/domain'
-import {
-  WorkspaceDomainDI,
-  WorkspaceMemberRole,
-  type Workspace,
-  type MemberRepository,
-  type WorkspaceRepository
-} from '@modules/workspace/domain'
 
 @Injectable()
 export class SignUpCase {
@@ -32,20 +24,25 @@ export class SignUpCase {
     @Inject(AuthDomainDI.PasswordHasher)
     private readonly passwordHasher: PasswordHasher,
     @Inject(AuthDomainDI.TokenGenerator)
-    private readonly tokenGenerator: TokenGenerator
+    private readonly tokenGenerator: TokenGenerator,
+    @Inject(CommonDI.TransactionRunner)
+    private readonly transaction: TransactionRunner
   ) {}
 
   @ValidateDto()
   public async execute(dto: SignUpDto): Promise<UserTokens> {
     await this.ensureEmailNotTaken(dto.email)
 
-    const user = await this.createUser(dto)
-    const workspace = await this.createWorkspace(user)
-    await this.linkUserToWorkspace(user, workspace)
-
     const hash = await this.passwordHasher.hash(dto.password)
 
-    return this.createCredentials(user, hash)
+    return this.transaction.run(async () => {
+      const user = await this.createUser(dto)
+      const workspace = await this.createWorkspace(user)
+
+      await this.linkUserToWorkspace(user, workspace)
+
+      return this.createCredentials(user, hash)
+    })
   }
 
   private async ensureEmailNotTaken(email: string) {

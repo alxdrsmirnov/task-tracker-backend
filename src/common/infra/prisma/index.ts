@@ -1,2 +1,6 @@
+export { CommonDI } from '../../di.tokens'
 export { PrismaModule } from './prisma.module'
+export { PrismaDb } from './prisma-db'
 export { PrismaService } from './prisma.service'
+export { PrismaTrxContext } from '../../context/prisma-trx-context'
+export { PrismaTrxRunner } from './prisma-trx-runner'

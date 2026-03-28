@@ -1,7 +1,7 @@
 import { HttpStatus, Module } from '@nestjs/common'
 import { DomainExceptionFilter } from '@common/filters'
 import { UserInfraModule } from '@modules/user'
-import { WorkspaceInfraModule } from '@modules/workspace/infra/workspace.infra.module'
+import { WorkspaceInfraModule } from '@modules/workspace'
 import { AuthHttpController } from './auth.http.controller'
 import { EmailAlreadyExists, InvalidCredentials, InvalidRefreshToken } from './domain'
 import { AuthInfraModule } from './infra/auth.infra.module'

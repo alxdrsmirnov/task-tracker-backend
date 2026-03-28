@@ -22,13 +22,13 @@ export class LogoutCase {
     await this.removeRefreshToken(creds, refreshToken)
   }
 
-  private async loadCredentials(token: string): Promise<UserCredentials> {
+  private async loadCredentials(token: string) {
     const creds = await this.credsRepository.findByRefreshToken(token)
     if (!creds) throw new InvalidRefreshToken()
     return creds
   }
 
-  private async removeRefreshToken(creds: UserCredentials, tokenValue: string): Promise<void> {
+  private async removeRefreshToken(creds: UserCredentials, tokenValue: string) {
     const remaining = creds.refreshTokens.filter((t) => t.value !== tokenValue)
     if (remaining.length === creds.refreshTokens.length) {
       throw new InvalidRefreshToken()

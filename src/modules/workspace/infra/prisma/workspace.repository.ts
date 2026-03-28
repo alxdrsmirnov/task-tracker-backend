@@ -1,31 +1,31 @@
 import { Injectable } from '@nestjs/common'
 import { parse } from 'zod'
-import { PrismaService } from '@common/infra/prisma'
+import { PrismaDb } from '@common/infra/prisma'
 import { WorkspaceSchema } from '../schemas'
 import type { Workspace, WorkspaceRepository } from '@modules/workspace/domain'
 import type { New } from '@common/types'
 
 @Injectable()
 export class WorkspacePrismaRepository implements WorkspaceRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prismaDb: PrismaDb) {}
 
   async findById(id: string): Promise<Workspace | null> {
-    const row = await this.prisma.workspace.findUnique({ where: { id } })
+    const row = await this.prismaDb.db.workspace.findUnique({ where: { id } })
     return row ? parse(WorkspaceSchema, row) : null
   }
 
   async create(data: New<Workspace>): Promise<Workspace> {
-    const created = await this.prisma.workspace.create({ data })
+    const created = await this.prismaDb.db.workspace.create({ data })
     return parse(WorkspaceSchema, created)
   }
 
   async update(workspace: Workspace): Promise<Workspace> {
     const { id, ...data } = workspace
-    const updated = await this.prisma.workspace.update({ where: { id }, data })
+    const updated = await this.prismaDb.db.workspace.update({ where: { id }, data })
     return parse(WorkspaceSchema, updated)
   }
 
   async delete(id: string): Promise<void> {
-    await this.prisma.workspace.delete({ where: { id } })
+    await this.prismaDb.db.workspace.delete({ where: { id } })
   }
 }
