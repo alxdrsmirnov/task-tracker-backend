@@ -28,7 +28,8 @@ export class RefreshTokensCase {
 
     this.validateRefreshToken(creds, refreshToken)
 
-    const user = await this.loadUserById(creds.userId)
+    const user = await this.loadUser(creds.userId)
+
     return this.refreshSession(user, creds, refreshToken)
   }
 
@@ -44,7 +45,7 @@ export class RefreshTokensCase {
     if (token.expiresAt <= new Date()) throw new InvalidRefreshToken()
   }
 
-  private async loadUserById(userId: string): Promise<User> {
+  private async loadUser(userId: string): Promise<User> {
     const user = await this.userRepository.findById(userId)
     if (!user) throw new InvalidRefreshToken()
     return user

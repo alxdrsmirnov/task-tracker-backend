@@ -12,7 +12,7 @@ import { LogoutDto } from './dto/logout.dto'
 export class LogoutCase {
   constructor(
     @Inject(AuthDomainDI.UserCredsRepository)
-    private readonly userCredsRepository: UserCredsRepository
+    private readonly credsRepository: UserCredsRepository
   ) {}
 
   @ValidateDto()
@@ -23,7 +23,7 @@ export class LogoutCase {
   }
 
   private async loadCredentials(token: string): Promise<UserCredentials> {
-    const creds = await this.userCredsRepository.findByRefreshToken(token)
+    const creds = await this.credsRepository.findByRefreshToken(token)
     if (!creds) throw new InvalidRefreshToken()
     return creds
   }
@@ -34,7 +34,7 @@ export class LogoutCase {
       throw new InvalidRefreshToken()
     }
 
-    await this.userCredsRepository.update({
+    await this.credsRepository.update({
       ...creds,
       refreshTokens: remaining
     })

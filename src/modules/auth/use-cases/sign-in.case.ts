@@ -32,7 +32,7 @@ export class SignInCase {
 
     await this.verifyPassword(dto.password, creds.passwordHash)
 
-    return this.issueNewSession(user, creds)
+    return this.createNewSession(user, creds)
   }
 
   private async loadUser(email: string): Promise<User> {
@@ -52,17 +52,17 @@ export class SignInCase {
     if (!ok) throw new InvalidCredentials()
   }
 
-  private async issueNewSession(user: User, creds: UserCredentials): Promise<UserTokens> {
+  private async createNewSession(user: User, creds: UserCredentials): Promise<UserTokens> {
     const accessToken = this.tokenGenerator.generateAccessToken({
       sub: user.id,
       email: user.email
     })
-    const newRefresh = this.tokenGenerator.generateRefreshToken()
+    const refreshToken = this.tokenGenerator.generateRefreshToken()
 
     await this.userCredsRepository.update({
       ...creds,
-      refreshTokens: [...creds.refreshTokens, newRefresh]
+      refreshTokens: [...creds.refreshTokens, refreshToken]
     })
-    return { accessToken, refreshToken: newRefresh.value }
+    return { accessToken, refreshToken: refreshToken.value }
   }
 }
