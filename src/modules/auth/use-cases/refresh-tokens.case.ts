@@ -30,7 +30,7 @@ export class RefreshTokensCase {
 
     const user = await this.loadUser(creds.userId)
 
-    return this.refreshSession(user, creds, refreshToken)
+    return this.refreshCredentials(user, creds, refreshToken)
   }
 
   private async loadCredentials(token: string): Promise<UserCredentials> {
@@ -51,7 +51,7 @@ export class RefreshTokensCase {
     return user
   }
 
-  private async refreshSession(
+  private async refreshCredentials(
     user: User,
     creds: UserCredentials,
     usedTokenValue: string

@@ -32,7 +32,7 @@ export class SignInCase {
 
     await this.verifyPassword(dto.password, creds.passwordHash)
 
-    return this.createNewSession(user, creds)
+    return this.createCredentials(user, creds)
   }
 
   private async loadUser(email: string): Promise<User> {
@@ -52,7 +52,7 @@ export class SignInCase {
     if (!ok) throw new InvalidCredentials()
   }
 
-  private async createNewSession(user: User, creds: UserCredentials): Promise<UserTokens> {
+  private async createCredentials(user: User, creds: UserCredentials): Promise<UserTokens> {
     const accessToken = this.tokenGenerator.generateAccessToken({
       sub: user.id,
       email: user.email
