@@ -5,11 +5,13 @@ import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/http/
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
-  const config = app.get(ConfigService)
 
+  app.setGlobalPrefix('api')
   app.useGlobalFilters(new DomainExceptionFilter(), new DtoValidationFailedFilter())
 
-  const port = Number(config.get('PORT')) || 3000
-  await app.listen(port)
+  const config = app.get(ConfigService)
+  const port = config.get<string>('PORT') ?? 3000
+
+  await app.listen(Number(port))
 }
 void bootstrap()

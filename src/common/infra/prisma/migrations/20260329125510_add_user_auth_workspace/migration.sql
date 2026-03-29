@@ -3,8 +3,8 @@ CREATE TYPE "WorkspaceMemberRole" AS ENUM ('owner', 'admin', 'member');
 
 -- CreateTable
 CREATE TABLE "user_credentials" (
-    "id" TEXT NOT NULL,
-    "user_id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
     "password_hash" TEXT NOT NULL,
 
     CONSTRAINT "user_credentials_pkey" PRIMARY KEY ("id")
@@ -12,45 +12,45 @@ CREATE TABLE "user_credentials" (
 
 -- CreateTable
 CREATE TABLE "refresh_tokens" (
-    "id" TEXT NOT NULL,
-    "user_creds_id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "user_creds_id" UUID NOT NULL,
     "value" TEXT NOT NULL,
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL,
+    "expires_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "users" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "first_name" TEXT NOT NULL,
     "last_name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "avatar_url" TEXT,
-    "last_workspace_id" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "last_workspace_id" UUID,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "workspaces" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL,
     "name" TEXT NOT NULL,
-    "creator_id" TEXT NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "creator_id" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "workspaces_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "workspace_members" (
-    "user_id" TEXT NOT NULL,
-    "workspace_id" TEXT NOT NULL,
-    "joined_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "user_id" UUID NOT NULL,
+    "workspace_id" UUID NOT NULL,
+    "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "role" "WorkspaceMemberRole" NOT NULL,
 
     CONSTRAINT "workspace_members_pkey" PRIMARY KEY ("workspace_id","user_id")

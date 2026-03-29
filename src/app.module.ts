@@ -18,9 +18,9 @@ import { WebSocketModule } from './ws/web-socket.module'
     WebSocketModule,
 
     // Бизнесовые модули
+    AuthModule,
     UserModule,
-    WorkspaceModule,
-    AuthModule
+    WorkspaceModule
   ]
 })
 export class AppModule {}

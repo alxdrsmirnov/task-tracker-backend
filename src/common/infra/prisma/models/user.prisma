@@ -1,12 +1,12 @@
 model User {
-  id              String   @id @default(uuid())
+  id              String   @id @default(uuid(7)) @db.Uuid
   firstName       String   @map("first_name")
   lastName        String   @map("last_name")
   email           String   @unique
   avatarUrl       String?  @map("avatar_url")
-  lastWorkspaceId String?  @map("last_workspace_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  lastWorkspaceId String?  @map("last_workspace_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("users")
 }

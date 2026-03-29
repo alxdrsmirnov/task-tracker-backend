@@ -1,9 +1,9 @@
 model Workspace {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid(7)) @db.Uuid
   name      String
-  creatorId String   @map("creator_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  creatorId String   @map("creator_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   members WorkspaceMember[]
 
@@ -11,9 +11,9 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  userId      String              @map("user_id")
-  workspaceId String              @map("workspace_id")
-  joinedAt    DateTime            @default(now()) @map("joined_at")
+  userId      String              @map("user_id") @db.Uuid
+  workspaceId String              @map("workspace_id") @db.Uuid
+  joinedAt    DateTime            @default(now()) @map("joined_at") @db.Timestamptz(6)
   role        WorkspaceMemberRole
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
