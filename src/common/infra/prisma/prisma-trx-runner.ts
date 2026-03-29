@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from './prisma.service'
 import type { Prisma } from '@prisma/client'
-import { TransactionContext } from '../../context'
-import type { TransactionRunner } from '@common/types'
+import { TransactionContext } from './transaction-context'
+import type { TransactionRunner } from '@common/domain'
 
 @Injectable()
 export class PrismaTrxRunner implements TransactionRunner {

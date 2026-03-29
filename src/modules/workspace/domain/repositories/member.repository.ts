@@ -1,4 +1,4 @@
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 import type { WorkspaceMember } from '../models/workspace-member'
 
 export interface MemberRepository {

@@ -3,7 +3,7 @@ import { parse } from 'zod'
 import { PrismaDb } from '@common/infra/prisma'
 import { WorkspaceSchema } from '../schemas'
 import type { Workspace, WorkspaceRepository } from '@modules/workspace/domain'
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 
 @Injectable()
 export class WorkspacePrismaRepository implements WorkspaceRepository {

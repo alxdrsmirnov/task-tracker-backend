@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaDb } from '@common/infra/prisma'
 import type { User, UserRepository } from '@modules/user/domain'
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 
 @Injectable()
 export class UserPrismaRepository implements UserRepository {

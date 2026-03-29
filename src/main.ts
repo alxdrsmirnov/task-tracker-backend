@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/filters'
+import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/http/filters'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)

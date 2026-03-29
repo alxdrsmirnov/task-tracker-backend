@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import type { Prisma } from '@prisma/client'
 import { PrismaService } from './prisma.service'
-import { TransactionContext } from '../../context'
+import { TransactionContext } from './transaction-context'
 
 @Injectable()
 export class PrismaDb {

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/decorators'
+import { ValidateDto } from '@common/use-cases'
 import {
   AuthDomainDI,
   InvalidCredentials,

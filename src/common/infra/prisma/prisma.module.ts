@@ -1,8 +1,8 @@
 import { Global, Module } from '@nestjs/common'
-import { CommonDI } from '../../di.tokens'
+import { CommonDI } from '../../domain/di.tokens'
 import { PrismaDb } from './prisma-db'
 import { PrismaService } from './prisma.service'
-import { TransactionContext } from '../../context'
+import { TransactionContext } from './transaction-context'
 import { PrismaTrxRunner } from './prisma-trx-runner'
 
 @Global()

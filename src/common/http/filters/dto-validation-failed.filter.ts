@@ -1,5 +1,5 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus } from '@nestjs/common'
-import { DtoValidationFailed } from '../exceptions/dto-validation-failed'
+import { DtoValidationFailed } from '../../use-cases/dto-validation-failed.exception'
 import { Response } from 'express'
 
 @Catch(DtoValidationFailed)

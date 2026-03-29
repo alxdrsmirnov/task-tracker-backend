@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/decorators'
-import { CommonDI } from '@common/di.tokens'
+import { ValidateDto } from '@common/use-cases'
+import { CommonDI } from '@common/domain'
 import { UserDomainDI } from '@modules/user/domain'
 import { AuthDomainDI, EmailAlreadyExists } from '../domain'
 import { WorkspaceDomainDI, WorkspaceMemberRole } from '@modules/workspace/domain'
 import type { PasswordHasher, TokenGenerator, UserCredsRepository, UserTokens } from '../domain'
 import type { Workspace, WorkspaceRepository, MemberRepository } from '@modules/workspace/domain'
 import type { User, UserRepository } from '@modules/user/domain'
-import type { TransactionRunner } from '@common/types'
+import type { TransactionRunner } from '@common/domain'
 import { SignUpDto } from './dto/sign-up.dto'
 
 @Injectable()

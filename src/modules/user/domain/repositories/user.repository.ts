@@ -1,4 +1,4 @@
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 import type { User } from '../models/user'
 
 export interface UserRepository {

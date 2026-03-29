@@ -1,13 +1,10 @@
 import 'reflect-metadata'
 import { plainToInstance } from 'class-transformer'
 import { validate, ValidationError } from 'class-validator'
-import { DtoValidationFailed } from '../exceptions/dto-validation-failed'
+import { DtoValidationFailed } from './dto-validation-failed.exception'
 
-// Сигнатура оригинального метода execute(), который оборачивает декоратор
 type ExecuteMethod = (this: unknown, ...args: unknown[]) => Promise<unknown>
 
-// Конструктор DTO-класса — нужен для plainToInstance,
-// который создаёт экземпляр класса из plain object
 type DtoConstructor = new (...args: unknown[]) => object
 
 /**
@@ -37,7 +34,6 @@ export function ValidateDto() {
     // поэтому каст через `as` неизбежен
     const originalMethod = descriptor.value as ExecuteMethod
 
-    // Подменяем execute() обёрткой, которая валидирует DTO перед вызовом
     descriptor.value = async function (...args: unknown[]) {
       const dtoObject = args[0]
       if (!dtoObject || typeof dtoObject !== 'object') {
@@ -55,7 +51,6 @@ export function ValidateDto() {
         | unknown[]
         | undefined
 
-      // Первый элемент — конструктор DTO-класса (например, RegisterDto)
       const DtoClass = paramTypes?.[0] as DtoConstructor | undefined
       if (!DtoClass) {
         throw new Error('Не удалось определить класс DTO для валидации параметров UseCase')
@@ -71,19 +66,15 @@ export function ValidateDto() {
         exposeUnsetFields: false
       })
 
-      // Запускаем валидацию class-validator.
-      // whitelist: true — отбрасывает поля, у которых нет декораторов в DTO
       const errors = await validate(dtoInstance, {
         whitelist: true,
         forbidNonWhitelisted: false
       })
 
-      // Если ошибок нет — вызываем оригинальный execute() с валидированным DTO
       if (!errors.length) {
         return originalMethod.call(this, dtoInstance)
       }
 
-      // Форматируем ошибки в { "email": ["must be an email"], "password": ["too short"] }
       const formattedErrors = formatErrors(errors)
       throw new DtoValidationFailed(formattedErrors)
     }
@@ -104,15 +95,12 @@ function formatErrors(errors: ValidationError[], prefix = ''): Record<string, st
   let result: Record<string, string[]> = {}
 
   for (const err of errors) {
-    // Строим путь: "address" + "city" → "address.city"
     const propertyPath = prefix ? `${prefix}.${err.property}` : err.property
 
-    // constraints — объект { decoratorName: "сообщение об ошибке" }
     if (err.constraints) {
       result[propertyPath] = Object.values(err.constraints)
     }
 
-    // children — вложенные ошибки для @ValidateNested() полей
     if (err.children?.length) {
       result = { ...result, ...formatErrors(err.children, propertyPath) }
     }

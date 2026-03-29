@@ -1,4 +1,4 @@
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 import type { UserCredentials } from '../models/user-credentials'
 
 export interface UserCredsRepository {

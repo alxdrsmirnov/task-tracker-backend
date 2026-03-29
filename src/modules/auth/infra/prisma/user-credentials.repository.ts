@@ -4,7 +4,7 @@ import { PrismaDb } from '@common/infra/prisma'
 import { UserCredentialsSchema } from '../schemas'
 import type { UserCredentials } from '@modules/auth/domain'
 import type { UserCredsRepository } from '@modules/auth/domain'
-import type { New } from '@common/types'
+import type { New } from '@common/domain'
 
 @Injectable()
 export class UserCredsPrismaRepository implements UserCredsRepository {
