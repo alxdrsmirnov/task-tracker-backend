@@ -24,10 +24,10 @@
 
 - Use case импортирует ТОЛЬКО из `domain/` — модели (интерфейсы), операции (функции), репозитории (интерфейсы), исключения. Никогда из `infra/`
 - Use case МОЖЕТ инжектить репозитории/gateway своего и чужого модуля по интерфейсу (через DI-токен)
-- modules/*/infra/prisma/ — репозитории; реализуют интерфейсы из domain/repositories/ через `import type` (DIP). Модели — в common/infra/prisma/schema.prisma
+- modules/*/infra/prisma/ — репозитории; реализуют интерфейсы из domain/repositories/ через `import type` (DIP). Схема БД — `common/infra/prisma/schema.prisma` и фрагменты в `common/infra/prisma/models/*.prisma`
 - modules/*/infra/prisma/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-контроллеры или DTO
 - common/infra/prisma/ — Prisma schema, client, миграции; импортируется в app.module.ts
-- common/ — шарится между модулями (pipes, decorators, utils, types)
+- common/ — кросс-модульный код, разложенный по слоям (domain, use-cases, infra, http); подробно — в разделе «Слой `src/common/`» ниже
 - Кросс-модульный доступ к данным: модуль импортирует `*.infra.module.ts` другого модуля
 - Кросс-модульные JOIN-ы в репозиториях запрещены. Каждый модуль работает только со своими таблицами: не использовать Prisma `include`/`select` с relations на таблицы другого модуля. Если use case нужны данные из двух модулей — он получает их отдельными вызовами через репозитории каждого модуля. Ссылки на сущности другого модуля хранятся как `id: string`, без Prisma relation
 - Gateway — тонкий роутер, не содержит логики, делегирует в ws-контроллер модулей
@@ -215,25 +215,34 @@ src/
 ├── main.ts
 ├── app.module.ts
 │
-├── common/                                  # общее для всех модулей
+├── common/                                  # кросс-модульный код по слоям (зеркалит структуру модулей)
+│   ├── domain/
+│   │   ├── index.ts                         # barrel: DomainException, CommonDI, New, TransactionRunner
+│   │   ├── di.tokens.ts
+│   │   ├── exceptions/
+│   │   │   └── domain.exception.ts          # базовый класс для доменных ошибок в модулях
+│   │   └── types/
+│   │       ├── generics.ts                  # New<T> и др.
+│   │       └── trx-runner.ts                # TransactionRunner
+│   ├── use-cases/
+│   │   ├── index.ts
+│   │   ├── validate-dto.decorator.ts
+│   │   └── dto-validation-failed.exception.ts
 │   ├── infra/
 │   │   └── prisma/
 │   │       ├── schema.prisma
-│   │       ├── prisma.module.ts             # Prisma forRoot
-│   │       └── prisma.service.ts
-│   ├── decorators/
-│   │   ├── current-user.decorator.ts
-│   │   └── workspace-roles.decorator.ts
-│   ├── filters/
-│   │   ├── http-exception.filter.ts
-│   │   └── ws-exception.filter.ts
-│   └── pipes/
-│       └── validation.pipe.ts
-│   ├── utils/
-│   │   └── pagination.ts
-│   └── types/
-│       ├── common.types.ts                 # PaginatedResult, New, Loaded
-│       └── enums.ts
+│   │       ├── models/*.prisma              # фрагменты схемы
+│   │       ├── prisma.module.ts
+│   │       ├── prisma.service.ts
+│   │       ├── prisma-db.ts
+│   │       ├── prisma-trx-runner.ts
+│   │       ├── transaction-context.ts
+│   │       └── index.ts
+│   └── http/
+│       └── filters/
+│           ├── domain-exception.filter.ts
+│           ├── dto-validation-failed.filter.ts
+│           └── index.ts
 │
 ├── ws/
 │   ├── web-socket.module.ts
@@ -546,6 +555,37 @@ src/
         │
         └── index.ts
 ```
+
+### Слой `src/common/`
+
+**Идея:** код в `common/` группируется по **архитектурному слою** (domain → use-cases → infra → http), а не по технической роли в корне (`decorators/`, `filters/` рядом друг с другом). Так проще сопоставить общий код со слоями в `modules/*/`.
+
+**Куда класть артефакт:**
+
+| Артефакт | Слой | Папка |
+| --- | --- | --- |
+| Базовый класс доменного исключения | domain | `domain/exceptions/` |
+| Общие типы и generics (`New<T>`, `TransactionRunner`) | domain | `domain/types/` |
+| Общие DI-токены | domain | `domain/di.tokens.ts` |
+| Декораторы и утилиты для use case, прикладные исключения (не домен) | use-cases | `use-cases/` |
+| Prisma, контекст транзакций, обвязка БД | infra | `infra/prisma/` |
+| HTTP exception filters | http | `http/filters/` |
+| WS-специфичные фильтры/guards (когда появятся) | ws | `ws/filters/`, `ws/guards/` — по аналогии с `http/` |
+
+Модульные доменные исключения (`EmailAlreadyExists`, `TaskNotFound` и т.д.) остаются в `modules/*/domain/exceptions/`, а не в `common/domain/`.
+
+**Импорты** (алиас `@common/*` в `tsconfig.json`):
+
+| Назначение | Путь |
+| --- | --- |
+| Домен: исключения, типы, DI | `@common/domain` |
+| Декораторы валидации DTO, `DtoValidationFailed` | `@common/use-cases` |
+| `PrismaModule`, `PrismaDb`, транзакции | `@common/infra/prisma` |
+| HTTP filters | `@common/http/filters` |
+
+Предпочтительны импорты через barrel-файлы (`index.ts`), а не глубокие пути к отдельным файлам.
+
+**Антипаттерны:** папки только по «роли» в корне `common/`; файлы в корне `common/` без слоя; смешение доменных и прикладных исключений в одной папке; реэкспорт через `infra/*/index.ts` артефактов родительских слоёв; вынос в общий слой исключений, которые использует один модуль.
 
 ## WebSocket архитектура
 

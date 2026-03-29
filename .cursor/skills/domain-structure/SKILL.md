@@ -84,12 +84,12 @@ export interface AuthUserRepository {
 
 ### Contract method argument types
 
-For `create` and `update` methods in contract interfaces, prefer shared generic types from `src/common/types`:
+For `create` and `update` methods in contract interfaces, prefer shared generic types from `src/common/domain`:
 
 - `New<T>` — strips system fields (`id`, `createdAt`, `updatedAt`) from the model; use for `create`
 - `Updatable<T>` — `Partial<New<T>>`; use for `update`
 
-These types are built on top of `SystemFields` — also in `src/common/types`.
+These types are built on top of `SystemFields` — also in `src/common/domain`.
 
 1. For `create`: prefer `New<Model>`
 2. For `update`: prefer `id` + `Updatable<Model>`
@@ -252,7 +252,7 @@ Rules:
 
 1. Only `interface`
 2. Only for database or internal persistence access
-3. Methods should accept and return `models`, local supporting types from `types/`, primitive types, or shared types from `src/common/types`
+3. Methods should accept and return `models`, local supporting types from `types/`, primitive types, or shared types from `src/common/domain`
 4. Never place implementation classes here
 5. Prefer method names that describe business persistence intent, such as `findById`, `list*` (for collections), `create`, `search`, `update`, or `delete`
 6. Do not expose ORM helpers, query builders, repository instances, or persistence result wrappers
@@ -274,7 +274,7 @@ Rules:
 
 1. Only `interface`
 2. Only for external APIs and integrations (amoCRM, HH, Pyrus, Avito, etc.)
-3. Methods should accept and return `models`, local supporting types from `types/`, primitive types, or shared types from `src/common/types`
+3. Methods should accept and return `models`, local supporting types from `types/`, primitive types, or shared types from `src/common/domain`
 4. Never place implementation classes here
 5. Prefer method names that describe business integration intent, not transport mechanics
 6. Do not expose `AxiosResponse`, SDK client types, raw webhook payloads, or transport result wrappers
@@ -310,7 +310,7 @@ Do NOT use this folder for:
 Rules:
 
 1. Only `interface`
-2. Methods should accept and return primitive types, `models`, local supporting types from `types/`, or shared types from `src/common/types`
+2. Methods should accept and return primitive types, `models`, local supporting types from `types/`, or shared types from `src/common/domain`
 3. Never place implementation classes here
 4. Prefer method names that describe the capability intent, such as `hash`, `verify`, `generate`, `encrypt`, `decrypt`
 
@@ -337,7 +337,7 @@ Rules:
 Naming:
 
 - File: `{error-name}.ts` in `kebab-case` (e.g. `relation-not-found.ts`, `form-not-linked.ts`)
-- Class: `{ErrorName} extends DomainException` (e.g. `RelationNotFound`, `FormNotLinked`); import `DomainException` from `src/common/exceptions`
+- Class: `{ErrorName} extends DomainException` (e.g. `RelationNotFound`, `FormNotLinked`); import `DomainException` from `@common/domain`
 
 Good fit: `relation-not-found.ts`, `form-not-linked.ts`, `interview-date-not-found.ts`
 
@@ -493,15 +493,15 @@ export class BcryptPasswordHasher implements PasswordHasher {}
 Inside `src/modules/{moduleName}/domain/**`, prefer only these imports:
 
 1. Neighbor files from the same module's `domain/`
-2. Shared types from `src/common/types`
+2. Shared types from `@common/domain`
 3. Public exports of another module when a true cross-module domain dependency is required
 
 Import path style:
 
 1. Always verify that import paths are correct before saving
 2. Use the shortest available path without sacrificing readability — prefer barrel (`index.ts`) re-exports over deep file paths when a barrel exists
-3. `import { New } from '@common/types'` — good (short, uses barrel)
-4. `import { New } from '@common/types/new.type'` — bad (unnecessarily deep when barrel re-exports it)
+3. `import { New } from '@common/domain'` — good (short, uses barrel)
+4. `import { New } from '@common/domain/types/generics'` — bad (unnecessarily deep when barrel re-exports it)
 
 Forbidden imports:
 
