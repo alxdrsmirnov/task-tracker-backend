@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from './prisma.service'
-import { PrismaTrxContext } from '../../context/prisma-trx-context'
+import type { Prisma } from '@prisma/client'
+import { TransactionContext } from '../../context'
 import type { TransactionRunner } from '@common/types'
 
 @Injectable()
 export class PrismaTrxRunner implements TransactionRunner {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly trxContext: PrismaTrxContext
+    private readonly trxContext: TransactionContext<Prisma.TransactionClient>
   ) {}
 
   run<T>(work: () => Promise<T>): Promise<T> {

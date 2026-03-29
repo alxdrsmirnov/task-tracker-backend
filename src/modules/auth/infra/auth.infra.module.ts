@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
-import type { SignOptions } from 'jsonwebtoken'
 import { AuthDomainDI } from '../domain'
 import { BcryptPasswordHasher } from './bcrypt/bcrypt-password-hasher'
 import { JwtTokenGenerator } from './jwt/jwt-token-generator'
 import { UserCredsPrismaRepository } from './prisma/user-credentials.repository'
+import type { SignOptions } from 'jsonwebtoken'
 
 @Module({
   imports: [
