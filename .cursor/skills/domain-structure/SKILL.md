@@ -464,7 +464,7 @@ Tools have capability-based names without a fixed suffix, so the technology is p
 | Domain interface | Implementation class | File path |
 | --- | --- | --- |
 | `PasswordHasher` | `BcryptPasswordHasher` | `infra/bcrypt/bcrypt-password-hasher.ts` |
-| `TokenGenerator` | `JwtTokenGenerator` | `infra/jwt/jwt-token-generator.ts` |
+| `TokenGenerator` | `JWTGenerator` | `infra/jwt/jwt-generator.ts` |
 
 ### Rules
 

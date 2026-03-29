@@ -1,30 +1,34 @@
 import { Module } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
 import { AuthDomainDI } from '../domain'
 import { BcryptPasswordHasher } from './bcrypt/bcrypt-password-hasher'
-import { JwtTokenGenerator } from './jwt/jwt-token-generator'
+import { JWTGenerator } from './jwt/jwt-generator'
 import { UserCredsPrismaRepository } from './prisma/user-credentials.repository'
 import type { SignOptions } from 'jsonwebtoken'
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
-      signOptions: {
-        expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as SignOptions['expiresIn']
-      }
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('ACCESS_TOKEN_SECRET'),
+        signOptions: {
+          expiresIn: config.getOrThrow<string>(
+            'ACCESS_TOKEN_EXPIRES_IN'
+          ) as SignOptions['expiresIn']
+        }
+      })
     })
   ],
   providers: [
-    BcryptPasswordHasher,
-    JwtTokenGenerator,
     {
       provide: AuthDomainDI.PasswordHasher,
-      useExisting: BcryptPasswordHasher
+      useClass: BcryptPasswordHasher
     },
     {
       provide: AuthDomainDI.TokenGenerator,
-      useExisting: JwtTokenGenerator
+      useClass: JWTGenerator
     },
     {
       provide: AuthDomainDI.UserCredsRepository,
@@ -34,8 +38,7 @@ import type { SignOptions } from 'jsonwebtoken'
   exports: [
     AuthDomainDI.UserCredsRepository,
     AuthDomainDI.PasswordHasher,
-    AuthDomainDI.TokenGenerator,
-    JwtModule
+    AuthDomainDI.TokenGenerator
   ]
 })
 export class AuthInfraModule {}
