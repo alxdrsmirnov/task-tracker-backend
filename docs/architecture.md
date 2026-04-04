@@ -266,7 +266,7 @@ src/
     │   │   └── exceptions/
     │   │       ├── invalid-credentials.ts
     │   │       ├── email-already-exists.ts
-    │   │       └── invalid-refresh-token.ts
+    │   │       └── unauthorized.ts
     │   │
     │   ├── infra/
     │   │   ├── auth.infra.module.ts

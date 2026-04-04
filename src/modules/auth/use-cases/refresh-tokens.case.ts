@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
 import {
   AuthDomainDI,
-  InvalidRefreshToken,
+  Unauthorized,
   type TokenCodec,
   type UserCredentials,
   type UserCredsRepository,
@@ -35,19 +35,19 @@ export class RefreshTokensCase {
 
   private async loadCredentials(token: string): Promise<UserCredentials> {
     const creds = await this.userCredsRepository.findByRefreshToken(token)
-    if (!creds) throw new InvalidRefreshToken()
+    if (!creds) throw new Unauthorized()
     return creds
   }
 
   private validateRefreshToken(creds: UserCredentials, tokenValue: string): void {
     const token = creds.refreshTokens.find((t) => t.value === tokenValue)
-    if (!token) throw new InvalidRefreshToken()
-    if (token.expiresAt <= new Date()) throw new InvalidRefreshToken()
+    if (!token) throw new Unauthorized()
+    if (token.expiresAt <= new Date()) throw new Unauthorized()
   }
 
   private async loadUser(userId: string): Promise<User> {
     const user = await this.userRepository.findById(userId)
-    if (!user) throw new InvalidRefreshToken()
+    if (!user) throw new Unauthorized()
     return user
   }
 

@@ -415,7 +415,7 @@ export type { UserTokens, JwtPayload } from './types/auth.types'
 /** === Exceptions === */
 export { InvalidCredentials } from './exceptions/invalid-credentials'
 export { EmailAlreadyExists } from './exceptions/email-already-exists'
-export { InvalidRefreshToken } from './exceptions/invalid-refresh-token'
+export { Unauthorized } from './exceptions/unauthorized'
 ```
 
 ## Contract Classification Guide

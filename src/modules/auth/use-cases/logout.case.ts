@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
 import {
   AuthDomainDI,
-  InvalidRefreshToken,
+  Unauthorized,
   type UserCredentials,
   type UserCredsRepository
 } from '@modules/auth/domain'
@@ -24,14 +24,14 @@ export class LogoutCase {
 
   private async loadCredentials(token: string) {
     const creds = await this.credsRepository.findByRefreshToken(token)
-    if (!creds) throw new InvalidRefreshToken()
+    if (!creds) throw new Unauthorized()
     return creds
   }
 
   private async removeRefreshToken(creds: UserCredentials, tokenValue: string) {
     const remaining = creds.refreshTokens.filter((t) => t.value !== tokenValue)
     if (remaining.length === creds.refreshTokens.length) {
-      throw new InvalidRefreshToken()
+      throw new Unauthorized()
     }
 
     await this.credsRepository.update({

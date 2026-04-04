@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import { AuthDomainDI, InvalidAccessToken, type TokenCodec } from '@modules/auth/domain'
+import { AuthDomainDI, Unauthorized, type TokenCodec } from '@modules/auth/domain'
 import { UserDomainDI, type User, type UserRepository } from '@modules/user/domain'
 import { GetMeDto } from './dto/get-me.dto'
 
@@ -18,7 +18,7 @@ export class GetMeCase {
     const { userId } = this.tokenCodec.verifyAccessToken(dto.accessToken)
 
     const user = await this.userRepository.findById(userId)
-    if (!user) throw new InvalidAccessToken()
+    if (!user) throw new Unauthorized()
     return user
   }
 }

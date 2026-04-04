@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { randomUUID } from 'node:crypto'
 import {
-  InvalidAccessToken,
+  Unauthorized,
   type AccessTokenPayload,
   type RefreshToken,
   type TokenCodec
@@ -25,7 +25,7 @@ export class JWTGenerator implements TokenCodec {
       const decoded = this.jwtService.verify<{ sub: string; email: string }>(token)
       return { userId: decoded.sub, email: decoded.email }
     } catch {
-      throw new InvalidAccessToken()
+      throw new Unauthorized()
     }
   }
 

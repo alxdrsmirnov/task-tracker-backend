@@ -16,5 +16,4 @@ export type { UserTokens, AccessTokenPayload } from './types/auth.types'
 /** === Exceptions === */
 export { EmailAlreadyExists } from './exceptions/email-already-exists'
 export { InvalidCredentials } from './exceptions/invalid-credentials'
-export { InvalidRefreshToken } from './exceptions/invalid-refresh-token'
-export { InvalidAccessToken } from './exceptions/invalid-access-token'
+export { Unauthorized } from './exceptions/unauthorized'
