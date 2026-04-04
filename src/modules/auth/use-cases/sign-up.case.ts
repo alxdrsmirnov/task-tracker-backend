@@ -4,7 +4,7 @@ import { CommonDI } from '@common/domain'
 import { UserDomainDI } from '@modules/user/domain'
 import { AuthDomainDI, EmailAlreadyExists } from '../domain'
 import { WorkspaceDomainDI, WorkspaceMemberRole } from '@modules/workspace/domain'
-import type { PasswordHasher, TokenGenerator, UserCredsRepository, UserTokens } from '../domain'
+import type { PasswordHasher, TokenCodec, UserCredsRepository, UserTokens } from '../domain'
 import type { Workspace, WorkspaceRepository, MemberRepository } from '@modules/workspace/domain'
 import type { User, UserRepository } from '@modules/user/domain'
 import type { TransactionRunner } from '@common/domain'
@@ -23,8 +23,8 @@ export class SignUpCase {
     private readonly userCredsRepository: UserCredsRepository,
     @Inject(AuthDomainDI.PasswordHasher)
     private readonly passwordHasher: PasswordHasher,
-    @Inject(AuthDomainDI.TokenGenerator)
-    private readonly tokenGenerator: TokenGenerator,
+    @Inject(AuthDomainDI.TokenCodec)
+    private readonly tokenCodec: TokenCodec,
     @Inject(CommonDI.TransactionRunner)
     private readonly transaction: TransactionRunner
   ) {}
@@ -78,11 +78,11 @@ export class SignUpCase {
   }
 
   private async createCredentials(user: User, passwordHash: string) {
-    const accessToken = this.tokenGenerator.generateAccessToken({
-      sub: user.id,
+    const accessToken = this.tokenCodec.generateAccessToken({
+      userId: user.id,
       email: user.email
     })
-    const refreshToken = this.tokenGenerator.generateRefreshToken()
+    const refreshToken = this.tokenCodec.generateRefreshToken()
 
     await this.userCredsRepository.create({
       userId: user.id,

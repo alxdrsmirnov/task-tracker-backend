@@ -2,17 +2,31 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { randomUUID } from 'node:crypto'
-import type { JwtPayload, RefreshToken, TokenGenerator } from '@modules/auth/domain'
+import {
+  InvalidAccessToken,
+  type AccessTokenPayload,
+  type RefreshToken,
+  type TokenCodec
+} from '@modules/auth/domain'
 
 @Injectable()
-export class JWTGenerator implements TokenGenerator {
+export class JWTGenerator implements TokenCodec {
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService
   ) {}
 
-  generateAccessToken(payload: JwtPayload): string {
-    return this.jwtService.sign({ sub: payload.sub, email: payload.email })
+  generateAccessToken(payload: AccessTokenPayload): string {
+    return this.jwtService.sign({ sub: payload.userId, email: payload.email })
+  }
+
+  verifyAccessToken(token: string): AccessTokenPayload {
+    try {
+      const decoded = this.jwtService.verify<{ sub: string; email: string }>(token)
+      return { userId: decoded.sub, email: decoded.email }
+    } catch {
+      throw new InvalidAccessToken()
+    }
   }
 
   generateRefreshToken(): RefreshToken {

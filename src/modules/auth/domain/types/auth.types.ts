@@ -3,7 +3,7 @@ export interface UserTokens {
   refreshToken: string
 }
 
-export interface JwtPayload {
-  sub: string
+export interface AccessTokenPayload {
+  userId: string
   email: string
 }

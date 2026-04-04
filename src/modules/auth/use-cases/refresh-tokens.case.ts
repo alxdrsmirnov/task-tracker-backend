@@ -3,7 +3,7 @@ import { ValidateDto } from '@common/use-cases'
 import {
   AuthDomainDI,
   InvalidRefreshToken,
-  type TokenGenerator,
+  type TokenCodec,
   type UserCredentials,
   type UserCredsRepository,
   type UserTokens
@@ -16,8 +16,8 @@ export class RefreshTokensCase {
   constructor(
     @Inject(AuthDomainDI.UserCredsRepository)
     private readonly userCredsRepository: UserCredsRepository,
-    @Inject(AuthDomainDI.TokenGenerator)
-    private readonly tokenGenerator: TokenGenerator,
+    @Inject(AuthDomainDI.TokenCodec)
+    private readonly tokenCodec: TokenCodec,
     @Inject(UserDomainDI.UserRepository)
     private readonly userRepository: UserRepository
   ) {}
@@ -58,9 +58,9 @@ export class RefreshTokensCase {
   ): Promise<UserTokens> {
     const remaining = creds.refreshTokens.filter((t) => t.value !== usedTokenValue)
 
-    const newRefresh = this.tokenGenerator.generateRefreshToken()
-    const accessToken = this.tokenGenerator.generateAccessToken({
-      sub: user.id,
+    const newRefresh = this.tokenCodec.generateRefreshToken()
+    const accessToken = this.tokenCodec.generateAccessToken({
+      userId: user.id,
       email: user.email
     })
 

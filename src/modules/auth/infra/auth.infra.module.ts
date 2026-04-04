@@ -27,7 +27,7 @@ import type { SignOptions } from 'jsonwebtoken'
       useClass: BcryptPasswordHasher
     },
     {
-      provide: AuthDomainDI.TokenGenerator,
+      provide: AuthDomainDI.TokenCodec,
       useClass: JWTGenerator
     },
     {
@@ -35,10 +35,6 @@ import type { SignOptions } from 'jsonwebtoken'
       useClass: UserCredsPrismaRepository
     }
   ],
-  exports: [
-    AuthDomainDI.UserCredsRepository,
-    AuthDomainDI.PasswordHasher,
-    AuthDomainDI.TokenGenerator
-  ]
+  exports: [AuthDomainDI.UserCredsRepository, AuthDomainDI.PasswordHasher, AuthDomainDI.TokenCodec]
 })
 export class AuthInfraModule {}

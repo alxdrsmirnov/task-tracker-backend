@@ -4,7 +4,7 @@ import {
   AuthDomainDI,
   InvalidCredentials,
   type PasswordHasher,
-  type TokenGenerator,
+  type TokenCodec,
   type UserCredentials,
   type UserCredsRepository,
   type UserTokens
@@ -21,8 +21,8 @@ export class SignInCase {
     private readonly userCredsRepository: UserCredsRepository,
     @Inject(AuthDomainDI.PasswordHasher)
     private readonly passwordHasher: PasswordHasher,
-    @Inject(AuthDomainDI.TokenGenerator)
-    private readonly tokenGenerator: TokenGenerator
+    @Inject(AuthDomainDI.TokenCodec)
+    private readonly tokenCodec: TokenCodec
   ) {}
 
   @ValidateDto()
@@ -53,11 +53,11 @@ export class SignInCase {
   }
 
   private async createCredentials(user: User, creds: UserCredentials): Promise<UserTokens> {
-    const accessToken = this.tokenGenerator.generateAccessToken({
-      sub: user.id,
+    const accessToken = this.tokenCodec.generateAccessToken({
+      userId: user.id,
       email: user.email
     })
-    const refreshToken = this.tokenGenerator.generateRefreshToken()
+    const refreshToken = this.tokenCodec.generateRefreshToken()
 
     await this.userCredsRepository.update({
       ...creds,
