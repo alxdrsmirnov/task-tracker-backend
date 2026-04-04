@@ -12,7 +12,8 @@ async function bootstrap() {
   const isDev = nodeEnv === 'development'
 
   app.setGlobalPrefix('api')
-  app.useGlobalFilters(new DomainExceptionFilter(), new DtoValidationFailedFilter())
+  app.useGlobalFilters(new DomainExceptionFilter())
+  app.useGlobalFilters(new DtoValidationFailedFilter())
 
   app.use(cookieParser())
 
