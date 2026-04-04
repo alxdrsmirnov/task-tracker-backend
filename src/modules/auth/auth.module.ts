@@ -1,5 +1,5 @@
 import { HttpStatus, Module } from '@nestjs/common'
-import { DomainExceptionFilter } from '@common/http/filters'
+import { DomainExceptionFilter } from '@common/api/http/filters'
 import { UserInfraModule } from '@modules/user'
 import { WorkspaceInfraModule } from '@modules/workspace'
 import { AuthHttpController } from './auth.http.controller'

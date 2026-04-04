@@ -3,6 +3,8 @@
 /node_modules
 /build
 
+.cursor/plans
+
 # /.cursor/plans
 
 # Logs

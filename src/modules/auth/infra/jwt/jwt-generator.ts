@@ -24,7 +24,7 @@ export class JWTGenerator implements TokenGenerator {
     return {
       value: randomUUID(),
       expiresAt,
-      createdAt: expiresAt
+      createdAt: new Date()
     }
   }
 }

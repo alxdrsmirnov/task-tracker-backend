@@ -20,6 +20,36 @@
   "workbench.startupEditor": "none", // пустой экран при старте
   "workbench.tree.indent": 18,
   "workbench.tree.renderIndentGuides": "always",
+  "material-icon-theme.folders.customClones": [
+    {
+      "name": "exceptions-error-orange-dark",
+      "base": "error",
+      "color": "orange-800",
+      "lightColor": "orange-900",
+      "folderNames": ["exceptions"]
+    },
+    {
+      "name": "gateways-web-teal",
+      "base": "public",
+      "color": "teal-400",
+      "lightColor": "teal-700",
+      "folderNames": ["gateways"]
+    },
+    {
+      "name": "domain-core-green",
+      "base": "core",
+      "color": "green-500",
+      "lightColor": "green-800",
+      "folderNames": ["domain"]
+    },
+    {
+      "name": "use-cases-app-blue",
+      "base": "app",
+      "color": "blue-500",
+      "lightColor": "blue-800",
+      "folderNames": ["use-cases", "use_cases"]
+    }
+  ],
 
   "workbench.colorCustomizations": {
     "[Darcula Stormy]": {
@@ -70,14 +100,6 @@
 
   // ========== ⚡ УДОБСТВО И ПРОИЗВОДИТЕЛЬНОСТЬ ==========
   "explorer.compactFolders": false, // не сворачивать одноуровневые папки
-
-  // Группировка файлов в Explorer (package.json, tsconfig)
-  "explorer.fileNesting.enabled": true,
-  "explorer.fileNesting.expand": false,
-  "explorer.fileNesting.patterns": {
-    "package.json": "package-lock.json, pnpm-lock.yaml, yarn.lock, bun.lock, bun.lockb, .nvmrc, .node-version, .npmrc, .yarnrc*, .editorconfig, .prettier*, .eslint*, eslint.config.*, prisma.config.ts, nest-cli.json",
-    "tsconfig.json": "tsconfig*.tsbuildinfo, tsconfig.*.json"
-  },
   "terminal.integrated.fontSize": 13, // немного увеличен терминал
   "terminal.integrated.lineHeight": 1.2,
   "terminal.integrated.cursorBlinking": true,
@@ -117,4 +139,3 @@
     "Editor": 16
   }
 }
-
