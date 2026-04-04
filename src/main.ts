@@ -8,12 +8,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const config = app.get(ConfigService)
 
-  app.setGlobalPrefix('api')
-  app.useGlobalFilters(new DomainExceptionFilter(), new DtoValidationFailedFilter())
-  app.use(cookieParser())
-
   const nodeEnv = config.getOrThrow<string>('NODE_ENV')
   const isDev = nodeEnv === 'development'
+
+  app.setGlobalPrefix('api')
+  app.useGlobalFilters(new DomainExceptionFilter(), new DtoValidationFailedFilter())
+
+  app.use(cookieParser())
 
   app.enableCors({
     origin: isDev, // TODO: для продакшена нужно будет указать конкретный домен
