@@ -1,21 +1,21 @@
 import { Global, Module } from '@nestjs/common'
 import { CommonDI } from '../../domain/di.tokens'
-import { PrismaDb } from './prisma-db'
 import { PrismaService } from './prisma.service'
+import { PrismaConnector } from './prisma.connector'
 import { TransactionContext } from './transaction-context'
 import { PrismaTrxRunner } from './prisma-trx-runner'
 
 @Global()
 @Module({
   providers: [
-    PrismaService,
+    PrismaConnector,
     TransactionContext,
-    PrismaDb,
+    PrismaService,
     {
       provide: CommonDI.TransactionRunner,
       useClass: PrismaTrxRunner
     }
   ],
-  exports: [PrismaService, TransactionContext, PrismaDb, CommonDI.TransactionRunner]
+  exports: [PrismaConnector, TransactionContext, PrismaService, CommonDI.TransactionRunner]
 })
 export class PrismaModule {}

@@ -1,5 +1,5 @@
 export { PrismaModule } from './prisma.module'
-export { PrismaDb } from './prisma-db'
+export { PrismaConnector } from './prisma.connector'
 export { PrismaService } from './prisma.service'
 export { TransactionContext } from './transaction-context'
 export { PrismaTrxRunner } from './prisma-trx-runner'
