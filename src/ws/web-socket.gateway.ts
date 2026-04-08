@@ -10,7 +10,8 @@ import {
   OnGatewayInit
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
-import { Server, Socket } from 'socket.io'
+import { Server } from 'socket.io'
+import type { AuthorizedSocket } from './types'
 
 @WsGateway({
   namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
@@ -22,15 +23,16 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
     private readonly getMemberCase: GetMemberCase
   ) {}
 
+  private readonly logger = new Logger(WebSocketGateway.name)
+
   @WebSocketServer()
   readonly server: Server
-
-  private readonly logger = new Logger(WebSocketGateway.name)
 
   afterInit(server: Server) {
     server.use((socket, next) => {
       void (async () => {
         try {
+          // 1. Достаём accessToken из cookies
           const cookieHeader = socket.handshake.headers.cookie
           const cookies = parseCookie(cookieHeader ?? '')
 
@@ -39,18 +41,25 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
             throw new Unauthorized()
           }
 
+          // 2. Получаем пользователя по токену
           const user = await this.getMeCase.execute({ accessToken })
-          if (!user.lastWorkspaceId) {
+
+          // 3. Извлекаем workspaceId из namespace (например, "workspace-abc123" → "abc123")
+          const namespaceName = socket.nsp.name
+          const workspaceId = namespaceName.replace('workspace-', '')
+          if (!workspaceId) {
             throw new Unauthorized()
           }
 
+          // 4. Проверяем, что пользователь — член этого workspace
           const workspaceMember = await this.getMemberCase.execute({
             userId: user.id,
-            workspaceId: user.lastWorkspaceId
+            workspaceId
           })
 
+          // 5. Сохраняем данные в socket для дальнейшего использования
           ;(socket.data as Record<string, unknown>).user = user
-          ;(socket.data as Record<string, unknown>).workspaceMember = workspaceMember
+          ;(socket.data as Record<string, unknown>).member = workspaceMember
           next()
         } catch {
           next(new Unauthorized())
@@ -59,11 +68,12 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
     })
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`)
+  handleConnection(socket: AuthorizedSocket) {
+    this.logger.log(`Client connected: ${socket.id}`)
+    this.logger.log(`Member: `, socket.data.member)
   }
 
-  handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: ${client.id}`)
+  handleDisconnect(socket: AuthorizedSocket) {
+    this.logger.log(`Client disconnected: ${socket.id}`)
   }
 }
