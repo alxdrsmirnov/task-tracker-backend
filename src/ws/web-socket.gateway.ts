@@ -1,6 +1,7 @@
-import { GetMeCase } from '@modules/auth/use-cases/get-me.case'
+import { Logger } from '@nestjs/common'
+import { Unauthorized } from '@modules/auth'
+import { GetMeCase } from '@modules/auth/use-cases'
 import { GetMemberCase } from '@modules/workspace/use-cases'
-import { Logger, UnauthorizedException } from '@nestjs/common'
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -10,7 +11,6 @@ import {
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server, Socket } from 'socket.io'
-import { Unauthorized } from '@modules/auth'
 
 @WsGateway({
   namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
