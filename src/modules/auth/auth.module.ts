@@ -16,8 +16,9 @@ DomainExceptionFilter.register(InvalidCredentials, HttpStatus.UNAUTHORIZED)
 DomainExceptionFilter.register(Unauthorized, HttpStatus.UNAUTHORIZED)
 
 @Module({
+  controllers: [AuthHttpController],
   imports: [AuthInfraModule, UserInfraModule, WorkspaceInfraModule],
   providers: [SignUpCase, SignInCase, RefreshTokensCase, LogoutCase, GetMeCase],
-  controllers: [AuthHttpController]
+  exports: [GetMeCase]
 })
 export class AuthModule {}
