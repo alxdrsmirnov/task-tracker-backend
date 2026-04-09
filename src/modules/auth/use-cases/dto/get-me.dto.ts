@@ -1,6 +1,6 @@
-import { IsString } from 'class-validator'
+import { IsJWT } from 'class-validator'
 
 export class GetMeDto {
-  @IsString()
+  @IsJWT()
   accessToken: string
 }

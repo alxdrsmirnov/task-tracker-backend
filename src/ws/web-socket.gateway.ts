@@ -15,7 +15,7 @@ import type { AuthorizedSocket } from './types'
 
 @WsGateway({
   namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
-  cors: true
+  cors: { origin: true, credentials: true }
 })
 export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -44,9 +44,9 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
           // 2. Получаем пользователя по токену
           const user = await this.getMeCase.execute({ accessToken })
 
-          // 3. Извлекаем workspaceId из namespace (например, "workspace-abc123" → "abc123")
+          // 3. Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
           const namespaceName = socket.nsp.name
-          const workspaceId = namespaceName.replace('workspace-', '')
+          const workspaceId = namespaceName.replace('/workspace-', '')
           if (!workspaceId) {
             throw new Unauthorized()
           }
@@ -69,11 +69,11 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   }
 
   handleConnection(socket: AuthorizedSocket) {
-    this.logger.log(`Client connected: ${socket.id}`)
+    this.logger.log(`Socket connected: ${socket.id}`)
     this.logger.log(`Member: `, socket.data.member)
   }
 
   handleDisconnect(socket: AuthorizedSocket) {
-    this.logger.log(`Client disconnected: ${socket.id}`)
+    this.logger.log(`Socket disconnected: ${socket.id}`)
   }
 }
