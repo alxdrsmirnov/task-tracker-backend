@@ -1,6 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common'
 import type { WorkspaceMember } from '@modules/workspace'
-import type { AuthorizedSocket } from '../../../ws/types'
+import type { AuthorizedSocket } from '../types'
 
 export const ConnectedMember = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): WorkspaceMember => {

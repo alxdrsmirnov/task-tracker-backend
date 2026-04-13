@@ -4,7 +4,7 @@ import { Unauthorized } from '@modules/auth'
 import { GetMeCase } from '@modules/auth/use-cases'
 import { GetMemberCase } from '@modules/workspace/use-cases'
 import { UserWsController } from '@modules/user/user.ws.controller'
-import { ConnectedMember } from '@common/api/ws'
+import { ConnectedMember } from './decorators'
 import type { User } from '@modules/user'
 import type { WorkspaceMember } from '@modules/workspace'
 import {

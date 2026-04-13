@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/api/http/filters'
+import { DomainExceptionFilter, DtoValidationFailedFilter } from './common/http/filters'
 import cookieParser from 'cookie-parser'
 
 async function bootstrap() {
