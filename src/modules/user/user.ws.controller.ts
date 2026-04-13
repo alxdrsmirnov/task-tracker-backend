@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common'
-import type { User } from './domain'
 import { GetUserCase } from './use-cases'
+import type { User } from './domain'
 
 @Injectable()
 export class UserWsController {
   constructor(private readonly getUserCase: GetUserCase) {}
 
-  me(userId: string): Promise<User> {
+  async me(userId: string): Promise<User> {
     return this.getUserCase.execute({ userId })
   }
 }
