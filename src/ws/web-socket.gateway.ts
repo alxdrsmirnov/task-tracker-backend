@@ -15,8 +15,8 @@ import {
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server } from 'socket.io'
-import type { AuthorizedSocket } from './types'
 import { User } from '@modules/user'
+import type { AuthorizedSocket } from './types'
 
 @WsGateway({
   namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
