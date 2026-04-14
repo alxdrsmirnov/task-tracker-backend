@@ -9,8 +9,9 @@ import { UserRepository } from '@modules/user/infra/repositories/user.repository
 import { WorkspaceRepository } from '@modules/workspace/infra/repositories/workspace.repository'
 import { MemberRepository } from '@modules/workspace/infra/repositories/member.repository'
 import { SignUpDto } from './dto/sign-up.dto'
-import { WorkspaceMemberRole } from '@prisma/client'
-import type { User, Workspace } from '@prisma/client'
+import { WorkspaceMemberRole } from '@modules/workspace/domain/schemas/workspace-member'
+import type { User } from '@modules/user/domain/schemas/user'
+import type { Workspace } from '@modules/workspace/domain/schemas/workspace'
 import type { UserTokens } from '../infra/types'
 
 @Injectable()

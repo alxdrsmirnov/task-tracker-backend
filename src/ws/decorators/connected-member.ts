@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common'
-import type { WorkspaceMember } from '@prisma/client'
+import type { WorkspaceMember } from '@modules/workspace/domain/schemas/workspace-member'
 import type { AuthorizedSocket } from '../types'
 
 export const ConnectedMember = createParamDecorator(

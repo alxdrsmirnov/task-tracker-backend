@@ -8,7 +8,7 @@ import { SignUpCase } from './use-cases/sign-up.case'
 import { SignInDto } from './use-cases/dto/sign-in.dto'
 import { SignUpDto } from './use-cases/dto/sign-up.dto'
 import type { CookieOptions, Request, Response } from 'express'
-import type { User } from '@prisma/client'
+import type { User } from '@modules/user/domain/schemas/user'
 import type { UserTokens } from './infra/types'
 
 @Controller('auth')

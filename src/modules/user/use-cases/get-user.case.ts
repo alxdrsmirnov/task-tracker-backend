@@ -3,7 +3,7 @@ import { ValidateDto } from '@common/use-cases'
 import { UserNotFound } from '../domain/exceptions/user-not-found'
 import { UserRepository } from '../infra/repositories/user.repository'
 import { GetUserDto } from './dto/get-user.dto'
-import type { User } from '@prisma/client'
+import type { User } from '../domain/schemas/user'
 
 @Injectable()
 export class GetUserCase {

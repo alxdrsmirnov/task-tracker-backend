@@ -4,7 +4,7 @@ import { Unauthorized } from '../domain/exceptions/unauthorized'
 import { TokenCodec } from '../infra/tools/token-codec'
 import { UserRepository } from '@modules/user/infra/repositories/user.repository'
 import { GetMeDto } from './dto/get-me.dto'
-import type { User } from '@prisma/client'
+import type { User } from '@modules/user/domain/schemas/user'
 
 @Injectable()
 export class GetMeCase {

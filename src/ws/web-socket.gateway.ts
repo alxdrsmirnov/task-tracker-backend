@@ -14,7 +14,8 @@ import { GetMeCase } from '@modules/auth/use-cases/get-me.case'
 import { GetMemberCase } from '@modules/workspace/use-cases/get-member.case'
 import { UserWsController } from '@modules/user/user.ws.controller'
 import { ConnectedMember } from './decorators'
-import type { User, WorkspaceMember } from '@prisma/client'
+import type { User } from '@modules/user/domain/schemas/user'
+import type { WorkspaceMember } from '@modules/workspace/domain/schemas/workspace-member'
 import type { AuthorizedSocket } from './types'
 
 @WsGateway({

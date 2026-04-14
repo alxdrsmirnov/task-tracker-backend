@@ -3,7 +3,7 @@ import { ValidateDto } from '@common/use-cases'
 import { MemberRepository } from '../infra/repositories/member.repository'
 import { Unauthorized } from '@modules/auth/domain/exceptions/unauthorized'
 import { GetMemberDto } from './dto/get-member.dto'
-import type { WorkspaceMember } from '@prisma/client'
+import type { WorkspaceMember } from '../domain/schemas/workspace-member'
 
 @Injectable()
 export class GetMemberCase {

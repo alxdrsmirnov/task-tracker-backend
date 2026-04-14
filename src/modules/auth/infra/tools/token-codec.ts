@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt'
 import { randomUUID } from 'node:crypto'
 import { Unauthorized } from '../../domain/exceptions/unauthorized'
 import type { AccessTokenPayload } from '../types'
-import type { RefreshToken } from '../../domain/schemas'
+import type { RefreshToken } from '../../domain/schemas/refresh-token'
 
 @Injectable()
 export class TokenCodec {

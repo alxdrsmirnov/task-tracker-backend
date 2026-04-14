@@ -3,7 +3,7 @@ import { ValidateDto } from '@common/use-cases'
 import { Unauthorized } from '../domain/exceptions/unauthorized'
 import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
 import { LogoutDto } from './dto/logout.dto'
-import type { UserCredentials } from '../domain/schemas'
+import type { UserCredentials } from '../domain/schemas/user-credentials'
 
 @Injectable()
 export class LogoutCase {

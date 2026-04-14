@@ -6,8 +6,8 @@ import { TokenCodec } from '../infra/tools/token-codec'
 import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
 import { UserRepository } from '@modules/user/infra/repositories/user.repository'
 import { SignInDto } from './dto/sign-in.dto'
-import type { User } from '@prisma/client'
-import type { UserCredentials } from '../domain/schemas'
+import type { User } from '@modules/user/domain/schemas/user'
+import type { UserCredentials } from '../domain/schemas/user-credentials'
 import type { UserTokens } from '../infra/types'
 
 @Injectable()
