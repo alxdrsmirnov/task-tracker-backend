@@ -1,14 +1,8 @@
 import { Module } from '@nestjs/common'
-import { UserDomainDI } from '../domain'
-import { UserPrismaRepository } from './prisma/user.repository'
+import { UserRepository } from './repositories/user.repository'
 
 @Module({
-  providers: [
-    {
-      provide: UserDomainDI.UserRepository,
-      useClass: UserPrismaRepository
-    }
-  ],
-  exports: [UserDomainDI.UserRepository]
+  providers: [UserRepository],
+  exports: [UserRepository]
 })
 export class UserInfraModule {}

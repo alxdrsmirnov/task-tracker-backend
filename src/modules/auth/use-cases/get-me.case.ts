@@ -1,15 +1,15 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import { AuthDomainDI, Unauthorized, type TokenCodec } from '@modules/auth/domain'
-import { UserDomainDI, type User, type UserRepository } from '@modules/user/domain'
+import { Unauthorized } from '../domain/exceptions/unauthorized'
+import { TokenCodec } from '../infra/tools/token-codec'
+import { UserRepository } from '@modules/user/infra/repositories/user.repository'
 import { GetMeDto } from './dto/get-me.dto'
+import type { User } from '@prisma/client'
 
 @Injectable()
 export class GetMeCase {
   constructor(
-    @Inject(AuthDomainDI.TokenCodec)
     private readonly tokenCodec: TokenCodec,
-    @Inject(UserDomainDI.UserRepository)
     private readonly userRepository: UserRepository
   ) {}
 

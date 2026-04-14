@@ -1,21 +1,20 @@
 import { Logger } from '@nestjs/common'
-import { SubscribeMessage } from '@nestjs/websockets'
-import { Unauthorized } from '@modules/auth'
-import { GetMeCase } from '@modules/auth/use-cases'
-import { GetMemberCase } from '@modules/workspace/use-cases'
-import { UserWsController } from '@modules/user/user.ws.controller'
-import { ConnectedMember } from './decorators'
-import type { WorkspaceMember } from '@modules/workspace'
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
   WebSocketGateway as WsGateway,
-  WebSocketServer,
-  OnGatewayInit
+  WebSocketServer
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server } from 'socket.io'
-import { User } from '@modules/user'
+import { Unauthorized } from '@modules/auth/domain/exceptions/unauthorized'
+import { GetMeCase } from '@modules/auth/use-cases/get-me.case'
+import { GetMemberCase } from '@modules/workspace/use-cases/get-member.case'
+import { UserWsController } from '@modules/user/user.ws.controller'
+import { ConnectedMember } from './decorators'
+import type { User, WorkspaceMember } from '@prisma/client'
 import type { AuthorizedSocket } from './types'
 
 @WsGateway({
@@ -38,7 +37,7 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
     server.use((socket, next) => {
       void (async () => {
         try {
-          // 1. Достаём accessToken из cookies
+          // Достаём accessToken из cookies
           const cookieHeader = socket.handshake.headers.cookie
           const cookies = parseCookie(cookieHeader ?? '')
 
@@ -47,23 +46,23 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
             throw new Unauthorized()
           }
 
-          // 2. Получаем пользователя по токену
+          // Получаем пользователя по токену
           const user = await this.getMeCase.execute({ accessToken })
 
-          // 3. Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
+          // Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
           const namespaceName = socket.nsp.name
           const workspaceId = namespaceName.replace('/workspace-', '')
           if (!workspaceId) {
             throw new Unauthorized()
           }
 
-          // 4. Проверяем, что пользователь — член этого workspace
+          // Проверяем, что пользователь — член этого workspace
           const workspaceMember = await this.getMemberCase.execute({
             userId: user.id,
             workspaceId
           })
 
-          // 5. Сохраняем данные в socket для дальнейшего использования
+          // Сохраняем данные в socket для дальнейшего использования
           ;(socket.data as Record<string, unknown>).user = user
           ;(socket.data as Record<string, unknown>).member = workspaceMember
           next()

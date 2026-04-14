@@ -1,31 +1,27 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import { CommonDI } from '@common/domain'
-import { UserDomainDI } from '@modules/user/domain'
-import { AuthDomainDI, EmailAlreadyExists } from '../domain'
-import { WorkspaceDomainDI, WorkspaceMemberRole } from '@modules/workspace/domain'
-import type { PasswordHasher, TokenCodec, UserCredsRepository, UserTokens } from '../domain'
-import type { Workspace, WorkspaceRepository, MemberRepository } from '@modules/workspace/domain'
-import type { User, UserRepository } from '@modules/user/domain'
-import type { TransactionRunner } from '@common/domain'
+import { TransactionRunner } from '@common/infra/prisma/prisma-trx-runner'
+import { EmailAlreadyExists } from '../domain/exceptions/email-already-exists'
+import { PasswordHasher } from '../infra/tools/password-hasher'
+import { TokenCodec } from '../infra/tools/token-codec'
+import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
+import { UserRepository } from '@modules/user/infra/repositories/user.repository'
+import { WorkspaceRepository } from '@modules/workspace/infra/repositories/workspace.repository'
+import { MemberRepository } from '@modules/workspace/infra/repositories/member.repository'
 import { SignUpDto } from './dto/sign-up.dto'
+import { WorkspaceMemberRole } from '@prisma/client'
+import type { User, Workspace } from '@prisma/client'
+import type { UserTokens } from '../infra/types'
 
 @Injectable()
 export class SignUpCase {
   constructor(
-    @Inject(UserDomainDI.UserRepository)
     private readonly userRepository: UserRepository,
-    @Inject(WorkspaceDomainDI.WorkspaceRepository)
     private readonly workspaceRepository: WorkspaceRepository,
-    @Inject(WorkspaceDomainDI.MemberRepository)
     private readonly memberRepository: MemberRepository,
-    @Inject(AuthDomainDI.UserCredsRepository)
-    private readonly userCredsRepository: UserCredsRepository,
-    @Inject(AuthDomainDI.PasswordHasher)
+    private readonly userCredsRepository: UserCredentialsRepository,
     private readonly passwordHasher: PasswordHasher,
-    @Inject(AuthDomainDI.TokenCodec)
     private readonly tokenCodec: TokenCodec,
-    @Inject(CommonDI.TransactionRunner)
     private readonly transaction: TransactionRunner
   ) {}
 
@@ -71,7 +67,7 @@ export class SignUpCase {
     await this.memberRepository.create({
       workspaceId: workspace.id,
       userId: user.id,
-      role: WorkspaceMemberRole.Owner,
+      role: WorkspaceMemberRole.owner,
       joinedAt: new Date()
     })
     await this.userRepository.update({ ...user, lastWorkspaceId: workspace.id })

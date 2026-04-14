@@ -1,27 +1,21 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import {
-  AuthDomainDI,
-  InvalidCredentials,
-  type PasswordHasher,
-  type TokenCodec,
-  type UserCredentials,
-  type UserCredsRepository,
-  type UserTokens
-} from '@modules/auth/domain'
-import { UserDomainDI, type User, type UserRepository } from '@modules/user/domain'
+import { InvalidCredentials } from '../domain/exceptions/invalid-credentials'
+import { PasswordHasher } from '../infra/tools/password-hasher'
+import { TokenCodec } from '../infra/tools/token-codec'
+import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
+import { UserRepository } from '@modules/user/infra/repositories/user.repository'
 import { SignInDto } from './dto/sign-in.dto'
+import type { User } from '@prisma/client'
+import type { UserCredentials } from '../domain/schemas'
+import type { UserTokens } from '../infra/types'
 
 @Injectable()
 export class SignInCase {
   constructor(
-    @Inject(UserDomainDI.UserRepository)
     private readonly userRepository: UserRepository,
-    @Inject(AuthDomainDI.UserCredsRepository)
-    private readonly userCredsRepository: UserCredsRepository,
-    @Inject(AuthDomainDI.PasswordHasher)
+    private readonly userCredsRepository: UserCredentialsRepository,
     private readonly passwordHasher: PasswordHasher,
-    @Inject(AuthDomainDI.TokenCodec)
     private readonly tokenCodec: TokenCodec
   ) {}
 

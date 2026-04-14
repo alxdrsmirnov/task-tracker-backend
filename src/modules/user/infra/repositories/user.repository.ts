@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '@common/infra/prisma'
-import type { User, UserRepository } from '@modules/user/domain'
+import type { User } from '@prisma/client'
 import type { New } from '@common/domain'
 
 @Injectable()
-export class UserPrismaRepository implements UserRepository {
+export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findById(id: string): Promise<User | null> {

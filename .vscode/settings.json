@@ -1,6 +1,6 @@
 {
   // ========== 💻 СИСТЕМНЫЕ НАСТРОЙКИ ==========
-  "window.zoomLevel": 1, // +10% масштаб интерфейса
+  "window.zoomLevel": 1, // масштаб интерфейса
 
   // ========== 🖋️ ШРИФТ И ВЕРСТКА ==========
   "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",

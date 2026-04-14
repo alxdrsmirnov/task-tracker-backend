@@ -2,15 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { randomUUID } from 'node:crypto'
-import {
-  Unauthorized,
-  type AccessTokenPayload,
-  type RefreshToken,
-  type TokenCodec
-} from '@modules/auth/domain'
+import { Unauthorized } from '../../domain/exceptions/unauthorized'
+import type { AccessTokenPayload } from '../types'
+import type { RefreshToken } from '../../domain/schemas'
 
 @Injectable()
-export class JWTGenerator implements TokenCodec {
+export class TokenCodec {
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { GetUserCase } from './use-cases'
-import type { User } from './domain'
+import type { User } from '@prisma/client'
 
 @Injectable()
 export class UserWsController {

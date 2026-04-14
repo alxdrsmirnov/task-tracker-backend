@@ -1,19 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import {
-  AuthDomainDI,
-  Unauthorized,
-  type UserCredentials,
-  type UserCredsRepository
-} from '@modules/auth/domain'
+import { Unauthorized } from '../domain/exceptions/unauthorized'
+import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
 import { LogoutDto } from './dto/logout.dto'
+import type { UserCredentials } from '../domain/schemas'
 
 @Injectable()
 export class LogoutCase {
-  constructor(
-    @Inject(AuthDomainDI.UserCredsRepository)
-    private readonly credsRepository: UserCredsRepository
-  ) {}
+  constructor(private readonly credsRepository: UserCredentialsRepository) {}
 
   @ValidateDto()
   public async execute({ refreshToken }: LogoutDto): Promise<void> {

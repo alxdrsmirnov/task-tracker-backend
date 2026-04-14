@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
-import { AuthDomainDI } from '../domain'
-import { BcryptPasswordHasher } from './bcrypt/bcrypt-password-hasher'
-import { JWTGenerator } from './jwt/jwt-generator'
-import { UserCredsPrismaRepository } from './prisma/user-credentials.repository'
+import { PasswordHasher } from './tools/password-hasher'
+import { TokenCodec } from './tools/token-codec'
+import { UserCredentialsRepository } from './repositories/user-credentials.repository'
 import type { SignOptions } from 'jsonwebtoken'
 
 @Module({
@@ -21,20 +20,7 @@ import type { SignOptions } from 'jsonwebtoken'
       })
     })
   ],
-  providers: [
-    {
-      provide: AuthDomainDI.PasswordHasher,
-      useClass: BcryptPasswordHasher
-    },
-    {
-      provide: AuthDomainDI.TokenCodec,
-      useClass: JWTGenerator
-    },
-    {
-      provide: AuthDomainDI.UserCredsRepository,
-      useClass: UserCredsPrismaRepository
-    }
-  ],
-  exports: [AuthDomainDI.UserCredsRepository, AuthDomainDI.PasswordHasher, AuthDomainDI.TokenCodec]
+  providers: [PasswordHasher, TokenCodec, UserCredentialsRepository],
+  exports: [PasswordHasher, TokenCodec, UserCredentialsRepository]
 })
 export class AuthInfraModule {}

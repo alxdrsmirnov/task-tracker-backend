@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common'
 import { parse } from 'zod'
 import { PrismaService } from '@common/infra/prisma'
-import { UserCredentialsSchema } from '../schemas'
-import type { UserCredentials } from '@modules/auth/domain'
-import type { UserCredsRepository } from '@modules/auth/domain'
+import { UserCredentialsSchema } from '../../domain/schemas'
+import type { UserCredentials } from '../../domain/schemas'
 import type { New } from '@common/domain'
 
 @Injectable()
-export class UserCredsPrismaRepository implements UserCredsRepository {
+export class UserCredentialsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByUserId(userId: string): Promise<UserCredentials | null> {
@@ -56,7 +55,7 @@ export class UserCredsPrismaRepository implements UserCredsRepository {
     const updated = await this.prisma.db.userCredentials.update({
       where: { id },
       data: {
-        passwordHash, // TODO: подумать над ID для RefreshToken
+        passwordHash,
         refreshTokens: {
           deleteMany: {},
           ...(refreshTokens.length ? { create: refreshTokens } : {})

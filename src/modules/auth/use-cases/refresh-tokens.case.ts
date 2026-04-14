@@ -1,24 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/use-cases'
-import {
-  AuthDomainDI,
-  Unauthorized,
-  type TokenCodec,
-  type UserCredentials,
-  type UserCredsRepository,
-  type UserTokens
-} from '@modules/auth/domain'
-import { UserDomainDI, type User, type UserRepository } from '@modules/user/domain'
+import { Unauthorized } from '../domain/exceptions/unauthorized'
+import { TokenCodec } from '../infra/tools/token-codec'
+import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
+import { UserRepository } from '@modules/user/infra/repositories/user.repository'
 import { RefreshTokensDto } from './dto/refresh-tokens.dto'
+import type { User } from '@prisma/client'
+import type { UserCredentials } from '../domain/schemas'
+import type { UserTokens } from '../infra/types'
 
 @Injectable()
 export class RefreshTokensCase {
   constructor(
-    @Inject(AuthDomainDI.UserCredsRepository)
-    private readonly userCredsRepository: UserCredsRepository,
-    @Inject(AuthDomainDI.TokenCodec)
+    private readonly userCredsRepository: UserCredentialsRepository,
     private readonly tokenCodec: TokenCodec,
-    @Inject(UserDomainDI.UserRepository)
     private readonly userRepository: UserRepository
   ) {}
 

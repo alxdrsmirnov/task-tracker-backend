@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common'
-import type { PasswordHasher } from '@modules/auth/domain'
 import * as bcrypt from 'bcrypt'
 
 @Injectable()
-export class BcryptPasswordHasher implements PasswordHasher {
+export class PasswordHasher {
   private readonly SALT_ROUNDS = 12
 
   hash(password: string): Promise<string> {

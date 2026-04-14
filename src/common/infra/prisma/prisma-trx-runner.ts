@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaConnector } from './prisma.connector'
 import { TransactionContext } from './transaction-context'
-import type { TransactionRunner } from '@common/domain'
 import type { Prisma } from '@prisma/client'
 
 @Injectable()
-export class PrismaTrxRunner implements TransactionRunner {
+export class TransactionRunner {
   constructor(
     private readonly prisma: PrismaConnector,
     private readonly trxContext: TransactionContext<Prisma.TransactionClient>
