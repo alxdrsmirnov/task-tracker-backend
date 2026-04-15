@@ -174,8 +174,7 @@ export class RegisterDto {
 @Injectable()
 export class RegisterCase {
   constructor(
-    @Inject(AuthDomainDI.AUTH_USER_REPOSITORY)
-    private readonly authUserRepo: AuthUserRepository,
+    private readonly userCredsRepo: UserCredentialsRepository,
   ) {}
 
   @ValidateDto()
@@ -213,7 +212,7 @@ async create(client: Socket, data: CreateTaskWsPayload) {
 3. One use case = one complete business scenario; do not split without a clear business boundary
 4. `execute()` delegates to well-named private methods
 5. Private methods return required data or throw domain exceptions
-6. Do not import another module's use case; use domain contracts, DI tokens, or events
+6. Do not import another module's use case; use the other module's exported infra classes, domain schemas, or domain exceptions
 7. `private` by default; `protected` only when inheritance requires it
 8. Do not introduce `any`
 

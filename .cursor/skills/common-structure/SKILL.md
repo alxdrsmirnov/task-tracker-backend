@@ -26,7 +26,6 @@ Group by **architectural layer** (domain, application, infrastructure, transport
 common/
   domain/
     index.ts              # required
-    di.tokens.ts          # when shared DI tokens exist
     exceptions/           # base domain exception classes
     types/                # shared domain types and utility generics
   use-cases/
@@ -47,7 +46,6 @@ Before creating a file in `common/`, classify the artifact:
 | --- | --- | --- |
 | Base domain exception class | domain | `domain/exceptions/` |
 | Shared domain type (`New<T>`, `TransactionRunner`) | domain | `domain/types/` |
-| Shared DI token | domain | `domain/di.tokens.ts` |
 | Use-case decorator or utility | use-cases | `use-cases/` |
 | Application-level exception (`DtoValidationFailed`) | use-cases | `use-cases/` |
 | Infrastructure implementation (Prisma, Redis) | infra | `infra/{technology}/` |
@@ -61,9 +59,8 @@ Before creating a file in `common/`, classify the artifact:
 
 1. `domain/index.ts` is required — it is the public entry point for shared domain code
 2. `domain/exceptions/` — only base exception classes that module domain exceptions extend (e.g. `DomainException`)
-3. `domain/types/` — shared types and utility generics used by multiple module domains (e.g. `New<T>`, `TransactionRunner`)
-4. `domain/di.tokens.ts` — DI tokens for shared contracts (e.g. `TransactionRunner`)
-5. Module-specific domain exceptions (`EmailAlreadyExists`, `InvalidCredentials`) do NOT belong here — they stay in the module's own `domain/exceptions/`
+3. `domain/types/` — shared types and utility generics used by multiple module domains (e.g. `New<T>`, `Updatable<T>`, `SystemFields`)
+4. Module-specific domain exceptions (`EmailAlreadyExists`, `InvalidCredentials`) do NOT belong here — they stay in the module's own `domain/exceptions/`
 
 ### `use-cases/`
 
@@ -91,7 +88,7 @@ Consumers of `common/` use these import paths:
 
 | What | Import path |
 | --- | --- |
-| Domain types, exceptions, DI tokens | `@common/domain` |
+| Domain types, exceptions | `@common/domain` |
 | Use-case utilities (`ValidateDto`, `DtoValidationFailed`) | `@common/use-cases` |
 | Infrastructure (`PrismaDb`, `PrismaModule`) | `@common/infra/prisma` |
 | HTTP filters | `@common/http/filters` |
