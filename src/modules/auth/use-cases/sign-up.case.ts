@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/use-cases'
-import { TransactionRunner } from '@common/infra/prisma/prisma-trx-runner'
+import { ValidateDto } from '@common/decorators'
+import { TransactionRunner } from '@common/infra/prisma'
 import { EmailAlreadyExists } from '../domain/exceptions/email-already-exists'
-import { PasswordHasher } from '../infra/tools/password-hasher'
-import { TokenCodec } from '../infra/tools/token-codec'
-import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
-import { UserRepository } from '@modules/user/infra/repositories/user.repository'
-import { WorkspaceRepository } from '@modules/workspace/infra/repositories/workspace.repository'
-import { MemberRepository } from '@modules/workspace/infra/repositories/member.repository'
+import { PasswordHasher } from '../domain/tools/password-hasher'
+import { TokenCodec } from '../domain/tools/token-codec'
+import { UserCredentialsRepository } from '../domain/repositories/user-credentials.repository'
+import { UserRepository } from '@modules/user/domain/repositories/user.repository'
+import { WorkspaceRepository } from '@modules/workspace/domain/repositories/workspace.repository'
+import { MemberRepository } from '@modules/workspace/domain/repositories/member.repository'
 import { SignUpDto } from './dto/sign-up.dto'
-import { WorkspaceMemberRole } from '@modules/workspace/domain/schemas/workspace-member'
-import type { User } from '@modules/user/domain/schemas/user'
-import type { Workspace } from '@modules/workspace/domain/schemas/workspace'
-import type { UserTokens } from '../infra/types'
+import { WorkspaceMemberRole } from '@modules/workspace/domain'
+import type { User } from '@modules/user/domain'
+import type { Workspace } from '@modules/workspace/domain'
+import type { UserTokens } from '../domain/types'
 
 @Injectable()
 export class SignUpCase {
@@ -21,9 +21,9 @@ export class SignUpCase {
     private readonly workspaceRepository: WorkspaceRepository,
     private readonly memberRepository: MemberRepository,
     private readonly userCredsRepository: UserCredentialsRepository,
+    private readonly transaction: TransactionRunner,
     private readonly passwordHasher: PasswordHasher,
-    private readonly tokenCodec: TokenCodec,
-    private readonly transaction: TransactionRunner
+    private readonly tokenCodec: TokenCodec
   ) {}
 
   @ValidateDto()

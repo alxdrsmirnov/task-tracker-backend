@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common'
-import { UserInfraModule } from './infra/user.infra.module'
+import { UserDomainModule } from './domain/user.domain.module'
 import { GetUserCase } from './use-cases'
-import { UserWsController } from './user.ws.controller'
 
 @Module({
-  imports: [UserInfraModule],
-  providers: [GetUserCase, UserWsController],
-  exports: [GetUserCase, UserWsController]
+  imports: [UserDomainModule],
+  providers: [GetUserCase],
+  exports: [GetUserCase, UserDomainModule]
 })
 export class UserModule {}

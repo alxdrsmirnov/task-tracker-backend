@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/use-cases'
+import { ValidateDto } from '@common/decorators'
 import { Unauthorized } from '../domain/exceptions/unauthorized'
-import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
+import { UserCredentialsRepository } from '../domain/repositories/user-credentials.repository'
 import { LogoutDto } from './dto/logout.dto'
-import type { UserCredentials } from '../domain/schemas/user-credentials'
+import type { UserCredentials } from '../domain/models/user-credentials'
 
 @Injectable()
 export class LogoutCase {

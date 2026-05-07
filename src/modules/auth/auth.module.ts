@@ -1,12 +1,9 @@
 import { HttpStatus, Module } from '@nestjs/common'
-import { DomainExceptionFilter } from '@common/http/filters'
-import { UserInfraModule } from '@modules/user/infra/user.infra.module'
-import { WorkspaceInfraModule } from '@modules/workspace/infra/workspace.infra.module'
-import { AuthHttpController } from './auth.http.controller'
-import { EmailAlreadyExists } from './domain/exceptions/email-already-exists'
-import { InvalidCredentials } from './domain/exceptions/invalid-credentials'
-import { Unauthorized } from './domain/exceptions/unauthorized'
-import { AuthInfraModule } from './infra/auth.infra.module'
+import { DomainExceptionFilter } from '@http/filters'
+import { UserDomainModule } from '@modules/user/domain/user.domain.module'
+import { WorkspaceDomainModule } from '@modules/workspace/domain/workspace.domain.module'
+import { AuthDomainModule } from './domain/auth.domain.module'
+import { EmailAlreadyExists, InvalidCredentials, Unauthorized } from './domain'
 import { GetMeCase } from './use-cases/get-me.case'
 import { LogoutCase } from './use-cases/logout.case'
 import { RefreshTokensCase } from './use-cases/refresh-tokens.case'
@@ -17,10 +14,11 @@ DomainExceptionFilter.register(EmailAlreadyExists, HttpStatus.CONFLICT)
 DomainExceptionFilter.register(InvalidCredentials, HttpStatus.UNAUTHORIZED)
 DomainExceptionFilter.register(Unauthorized, HttpStatus.UNAUTHORIZED)
 
+const useCases = [SignUpCase, SignInCase, RefreshTokensCase, LogoutCase, GetMeCase]
+
 @Module({
-  controllers: [AuthHttpController],
-  imports: [AuthInfraModule, UserInfraModule, WorkspaceInfraModule],
-  providers: [SignUpCase, SignInCase, RefreshTokensCase, LogoutCase, GetMeCase],
-  exports: [GetMeCase]
+  imports: [AuthDomainModule, UserDomainModule, WorkspaceDomainModule],
+  providers: useCases,
+  exports: [...useCases, AuthDomainModule]
 })
 export class AuthModule {}

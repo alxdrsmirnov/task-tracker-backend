@@ -1,7 +1,10 @@
-import { DomainException } from '@common/domain'
+import { DomainException } from '@common/exceptions'
 
 export class InvalidCredentials extends DomainException {
   constructor() {
-    super('Неверный email или пароль')
+    super({
+      code: 'INVALID_CREDENTIALS',
+      message: 'Неверный email или пароль'
+    })
   }
 }

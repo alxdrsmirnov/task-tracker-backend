@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/use-cases'
+import { ValidateDto } from '@common/decorators'
 import { InvalidCredentials } from '../domain/exceptions/invalid-credentials'
-import { PasswordHasher } from '../infra/tools/password-hasher'
-import { TokenCodec } from '../infra/tools/token-codec'
-import { UserCredentialsRepository } from '../infra/repositories/user-credentials.repository'
-import { UserRepository } from '@modules/user/infra/repositories/user.repository'
+import { PasswordHasher } from '../domain/tools/password-hasher'
+import { TokenCodec } from '../domain/tools/token-codec'
+import { UserCredentialsRepository } from '../domain/repositories/user-credentials.repository'
+import { UserRepository } from '@modules/user/domain/repositories/user.repository'
 import { SignInDto } from './dto/sign-in.dto'
-import type { User } from '@modules/user/domain/schemas/user'
-import type { UserCredentials } from '../domain/schemas/user-credentials'
-import type { UserTokens } from '../infra/types'
+import type { User } from '@modules/user/domain'
+import type { UserCredentials } from '../domain/models/user-credentials'
+import type { UserTokens } from '../domain/types'
 
 @Injectable()
 export class SignInCase {

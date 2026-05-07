@@ -1,7 +1,11 @@
-import { DomainException } from '@common/domain'
+import { DomainException } from '@common/exceptions'
 
 export class UserNotFound extends DomainException {
-  constructor() {
-    super('Пользователь не найден')
+  constructor(userId: string) {
+    super({
+      code: 'USER_NOT_FOUND',
+      message: `Пользователь с id=${userId} не найден`,
+      metadata: { userId }
+    })
   }
 }

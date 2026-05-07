@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/use-cases'
+import { ValidateDto } from '@common/decorators'
 import { Unauthorized } from '../domain/exceptions/unauthorized'
-import { TokenCodec } from '../infra/tools/token-codec'
-import { UserRepository } from '@modules/user/infra/repositories/user.repository'
+import { TokenCodec } from '../domain/tools/token-codec'
+import { UserRepository } from '@modules/user/domain/repositories/user.repository'
 import { GetMeDto } from './dto/get-me.dto'
-import type { User } from '@modules/user/domain/schemas/user'
+import type { User } from '@modules/user/domain'
 
 @Injectable()
 export class GetMeCase {

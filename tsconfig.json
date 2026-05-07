@@ -10,7 +10,9 @@
     "baseUrl": "./", // Базовая директория для путей
     "paths": {
       "@modules/*": ["src/modules/*"],
-      "@common/*": ["src/common/*"]
+      "@common/*": ["src/common/*"],
+      "@http/*": ["src/http/*"],
+      "@ws/*": ["src/ws/*"]
     },
 
     "esModuleInterop": true, // Совместимость import/require с CommonJS

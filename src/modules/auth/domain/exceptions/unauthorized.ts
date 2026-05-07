@@ -1,7 +1,10 @@
-import { DomainException } from '@common/domain'
+import { DomainException } from '@common/exceptions'
 
 export class Unauthorized extends DomainException {
   constructor() {
-    super('Unauthorized')
+    super({
+      code: 'UNAUTHORIZED',
+      message: 'Не авторизован'
+    })
   }
 }

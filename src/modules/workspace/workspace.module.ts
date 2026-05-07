@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common'
-import { WorkspaceInfraModule } from './infra/workspace.infra.module'
+import { WorkspaceDomainModule } from './domain/workspace.domain.module'
 import { GetMemberCase } from './use-cases'
 
 @Module({
-  imports: [WorkspaceInfraModule],
+  imports: [WorkspaceDomainModule],
   providers: [GetMemberCase],
-  exports: [GetMemberCase]
+  exports: [GetMemberCase, WorkspaceDomainModule]
 })
 export class WorkspaceModule {}

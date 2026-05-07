@@ -9,13 +9,13 @@ import {
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server } from 'socket.io'
-import { Unauthorized } from '@modules/auth/domain/exceptions/unauthorized'
+import { Unauthorized } from '@modules/auth/domain'
 import { GetMeCase } from '@modules/auth/use-cases/get-me.case'
 import { GetMemberCase } from '@modules/workspace/use-cases/get-member.case'
-import { UserWsController } from '@modules/user/user.ws.controller'
+import { UserWsController } from './controllers'
 import { ConnectedMember } from './decorators'
-import type { User } from '@modules/user/domain/schemas/user'
-import type { WorkspaceMember } from '@modules/workspace/domain/schemas/workspace-member'
+import type { User } from '@modules/user/domain'
+import type { WorkspaceMember } from '@modules/workspace/domain'
 import type { AuthorizedSocket } from './types'
 
 @WsGateway({
@@ -26,7 +26,7 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   constructor(
     private readonly getMeCase: GetMeCase,
     private readonly getMemberCase: GetMemberCase,
-    private readonly UserWsController: UserWsController
+    private readonly userWsController: UserWsController
   ) {}
 
   private readonly logger = new Logger(WebSocketGateway.name)
@@ -86,6 +86,6 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   /** ========== USER MESSAGES ========== */
   @SubscribeMessage('user:me')
   async handleUserMe(@ConnectedMember() member: WorkspaceMember): Promise<User> {
-    return this.UserWsController.me(member.userId)
+    return this.userWsController.me(member.userId)
   }
 }

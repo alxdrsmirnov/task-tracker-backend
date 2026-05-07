@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common'
-import { ValidateDto } from '@common/use-cases'
-import { MemberRepository } from '../infra/repositories/member.repository'
-import { Unauthorized } from '@modules/auth/domain/exceptions/unauthorized'
+import { ValidateDto } from '@common/decorators'
+import { MemberRepository } from '../domain/repositories/member.repository'
+import { Unauthorized } from '@modules/auth/domain'
 import { GetMemberDto } from './dto/get-member.dto'
-import type { WorkspaceMember } from '../domain/schemas/workspace-member'
+import type { WorkspaceMember } from '../domain/models/workspace-member'
 
 @Injectable()
 export class GetMemberCase {
