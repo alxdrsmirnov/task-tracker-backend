@@ -1,256 +1,389 @@
 ---
 name: domain-structure
-description: Organizes `src/modules/{moduleName}/domain/` in project modules and keeps domain boundaries clean. Use when creating or refactoring domain folders, deciding where domain code belongs, or working with `schemas`, `exceptions`, or `operations` inside `domain/`.
+description: Organizes `src/modules/{moduleName}/domain/` and keeps domain boundaries clean. Use when creating or refactoring a domain folder, deciding where domain code belongs, or working with `domain`, `domain folder`, `domain layer`, `model`, `models`, `repository`, `repositories`, `gateway`, `gateways`, `tools`, `types`, or `exceptions` inside a module.
 ---
 
 # Module Domain Structure
 
-## Scope
+## Cheat Sheet
 
-Apply this skill when at least one of these signals is present:
-
-1. The work touches `src/modules/*/domain/**`
-2. The task is to create or refactor a module's `domain/` structure
-3. The task mentions `schemas`, `exceptions`, `operations`, or zod schemas in a module context
-4. The task requires deciding whether code belongs to `domain` or `infra`
+- Required files: `domain/index.ts`, `domain/{module}.domain.module.ts`, `domain/models/` (≥1 entity).
+- Optional folders: add only when you have the artifact to put inside.
+- `repositories/`, `gateways/`, `tools/` — concrete `@Injectable()` classes. Interfaces only for polymorphism.
+- `{module}.domain.module.ts` — NestJS `@Module` that registers and exports all domain providers.
+- `DomainException` constructor: `super({ code, message, cause?, metadata? })`.
+- Exception file names: no `Exception` suffix — `client-not-found.ts`, class `ClientNotFound`.
+- Exception messages: Russian. Code: `UPPER_SNAKE_CASE`.
+- `create` / `update` method signatures: prefer `New<Model>` / `Updatable<Model>` from `@common/types`.
+- Models are `interface` (TS), NOT ORM entity classes. ORM entities live in `common/infra/typeorm/entities/`.
 
 ## Goal
 
-Keep `domain/` lightweight and business-oriented.
+`domain/` is predictable and business-oriented. A developer opens `domain/` and immediately sees:
 
-A developer should be able to open `domain/` and immediately see:
-
-1. Business entity schemas and derived types in `schemas/`
-2. Domain-specific exceptions in `exceptions/`
-3. Pure business rule functions in `operations/` (when needed)
+1. Business entities in `models/`
+2. Persistence access in `repositories/`
+3. External integrations in `gateways/`
+4. In-process capabilities in `tools/`
+5. Supporting types in `types/`
+6. Domain errors in `exceptions/`
+7. Public API in `domain/index.ts`
+8. DI wiring in `{module}.domain.module.ts`
 
 ## Target Shape
 
-Use this target shape for `src/modules/{moduleName}/domain/`:
+```text
+domain/
+  index.ts                      # required — public API
+  {module}.domain.module.ts     # required — NestJS @Module
+  models/                       # required — business entities (interface)
+    defaults/                   # optional — default instances for models
+  types/                        # optional — supporting types / enums
+  repositories/                 # optional — @Injectable() persistence classes
+  gateways/                     # optional — @Injectable() external integration classes
+    types/                      # optional — shapes specific to external APIs
+  tools/                        # optional — @Injectable() in-process capabilities
+  exceptions/                   # optional — domain errors
+  constants.ts                  # optional — module-level constants
+```
+
+Minimum viable domain:
 
 ```text
 domain/
-  schemas/              # when module has entities that diverge from Prisma defaults
-  exceptions/           # when module needs domain errors
-  operations/           # optional, when module has business rules beyond CRUD
+  index.ts
+  {module}.domain.module.ts
+  models/
+    {entity}.ts
 ```
 
-Rules for creation:
+Add folders only when the module has the corresponding artifact. A module without external APIs has no `gateways/`. A module without DB access has no `repositories/`. Empty / "just-in-case" folders are noise.
 
-1. `schemas/` is created when the module's business entities diverge from Prisma's default scalar types (e.g. need custom field sets, embedded relations, or validation)
-2. `exceptions/` is created when the module needs explicit domain errors
-3. `operations/` is created only when the module has pure business rules beyond simple CRUD
-4. When all types are 1:1 with Prisma models and there are no exceptions — `domain/` folder is not needed
-5. No `index.ts` barrel file — use direct imports to specific files
-6. No `di.tokens.ts` — DI is done by class reference, not Symbol tokens
+## `{module}.domain.module.ts` — required
 
-## What Moved Out of `domain/`
+Every module's `domain/` has a NestJS module that registers and exports the module's providers (repositories, gateways, tools).
 
-Previous architecture kept contract interfaces (`repositories/`, `gateways/`, `tools/`) and DI tokens in `domain/`. In the current architecture:
+Example:
 
-- **Repositories, gateways, tools** — concrete classes live in `infra/repositories/`, `infra/gateways/`, `infra/tools/`
-- **DI tokens** — removed; inject by class reference
-- **Supporting types** (DTOs, infra-specific shapes) — live in `infra/types/`
-- **Business entity types** — derived from zod schemas via `z.infer`, or imported from `@prisma/client` when 1:1
+```ts
+import { Module } from '@nestjs/common'
+import { ClientRepository } from './repositories/client.repository'
+
+@Module({
+  providers: [ClientRepository],
+  exports: [ClientRepository]
+})
+export class ClientDomainModule {}
+```
+
+Rules:
+
+1. One file per module: `{module}.domain.module.ts`.
+2. Class name: `{Module}DomainModule` (e.g. `ClientDomainModule`, `AuthDomainModule`).
+3. Register every `@Injectable()` class from `repositories/`, `gateways/`, `tools/`.
+4. Export everything that neighboring modules need to inject.
+5. The module is NOT re-exported from `domain/index.ts` — neighbors import it directly: `import { ClientDomainModule } from '@modules/client/domain/client.domain.module'`.
 
 ## Folder Rules
 
-Before creating a new file in `domain/`, classify the artifact:
+### Classification table
 
-- Business entity schema (zod) → `schemas/`
-- Pure business rule function → `operations/`
-- Domain-specific error → `exceptions/`
-- Repository / gateway / tool implementation → not `domain/`; belongs in `infra/`
-- Supporting type or DTO → not `domain/`; belongs in `infra/types/`
-- Implementation detail → not `domain/`; check `infra` or another layer
+| Artifact | Folder | Example |
+| --- | --- | --- |
+| Business entity | `models/` | `client.ts` → `interface Client` |
+| Supporting type / `enum` | `types/` | `client.types.ts` |
+| Persistence class | `repositories/` | `client.repository.ts` → `class ClientRepository` |
+| External integration class | `gateways/` | `amo-auth.gateway.ts` → `class AmoAuthGateway` |
+| In-process capability class | `tools/` | `upload.logger.ts` → `class UploadLogger` |
+| Domain error | `exceptions/` | `client-not-found.ts` → `class ClientNotFound` |
+| Default model instance | `models/defaults/` | `amo-auth.default.ts` → `export const amoAuthDefault` |
+| Module-level const array / enum map | `constants.ts` at domain root | `TextTypes`, `NumericTypes` |
+| Business scenario (use case) | `src/modules/{m}/use-cases/` | `create-client.ts` |
+| HTTP controller / filter / guard | `src/http/` | — |
+| BullMQ worker | `src/queue/workers/` | — |
+| Cron task | `src/cron/tasks/` | — |
+| ORM entity class | `src/common/infra/typeorm/entities/{domain}/` | `client.ts` |
 
-### `schemas/`
+### `models/`
 
-Store zod schemas as the single source of truth for business entity types that diverge from Prisma defaults.
-
-Rules:
-
-1. One file per entity: `{entity}.ts` in `kebab-case` (e.g. `user-credentials.ts`, `refresh-token.ts`)
-2. Define the schema using `zod`, export the schema and the derived type via `z.infer`
-3. When a module's entity is 1:1 with Prisma model — use `import type { Entity } from '@prisma/client'` directly, no schema needed
-4. Do not create schemas just to mirror Prisma types without changes
-
-Example:
-
-```ts
-// domain/schemas/user-credentials.ts
-import { z } from 'zod'
-
-export const UserCredentialsSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  email: z.string().email(),
-  passwordHash: z.string(),
-  refreshTokens: z.array(RefreshTokenSchema),
-})
-
-export type UserCredentials = z.infer<typeof UserCredentialsSchema>
-```
-
-For simple 1:1 Prisma models:
-
-```ts
-import type { User } from '@prisma/client'
-```
-
-### `operations/`
-
-Store pure functions that encode business rules over domain models.
-
-Operations are immutable pure functions. They accept `Readonly<T>`, return a new object, and never mutate the input. They have no side effects except throwing domain exceptions.
-
-If an operation changes model data, it returns the full model (`T`), not a partial object.
-
-Create `operations/` only when the module has business rules that go beyond simple CRUD.
+Store business entities as TypeScript `interface`.
 
 Rules:
 
-1. One file per model or topic: `{entity}.operations.ts`
-2. Functions accept `Readonly<Model>` and return `Model` or a primitive
-3. No dependencies on repositories, gateways, tools, or any injected services
-4. Domain exceptions are allowed
-5. No side effects beyond throwing exceptions
+1. One entity per file. Filename: `{entity}.ts` in kebab-case. Interface name: `PascalCase` without `I` prefix.
+2. Models do NOT extend ORM entity classes. ORM mapping lives in `common/infra/typeorm/entities/`.
+3. A model may reference local supporting types from `types/`.
+4. Do not place helper types, DTOs, transport payloads, search params, or repository args here.
 
-Example:
+Good: `client.ts`, `parser.ts`, `client-auth.ts`.
+Bad: `client-search.types.ts`, `create-client.dto.ts`, `amo-lead-response.ts`.
+
+### `models/defaults/` (optional)
+
+Default model instances — exported typed constants.
 
 ```ts
-export function completeTask(task: Readonly<Task>): Task {
-  if (task.status === 'completed') {
-    throw new TaskAlreadyCompleted(task.id)
+import type { AmoAuth } from '../amo-auth'
+
+export const amoAuthDefault: AmoAuth = {
+  domain: null,
+  accessToken: null,
+  credentials: { clientId: null, clientSecret: null, redirectUri: null }
+}
+```
+
+File naming: `{entity}.default.ts`. Constant: `{entity}Default`.
+
+### `constants.ts` — at domain root
+
+Use for module-level constants (const arrays, enum maps, frozen configs). Keep at the domain root when there is a single file; if the number grows — split into a folder.
+
+Example: `amo/domain/constants.ts` exports `TextTypes`, `NumericTypes`, `DateTypes`, etc.
+
+### `types/`
+
+Store supporting types: enums, repository / gateway method args, search params, filter shapes, composite helpers.
+
+Rules:
+
+1. Group related types per topic in one file: `{topic}.types.ts` or `index.ts`.
+2. Types are `type` aliases or `enum`s. If a shape qualifies as a business entity, move it to `models/`.
+3. For repository `create` / `update` args, prefer `New<Model>` / `Updatable<Model>` from `@common/types`:
+
+   ```ts
+   public async create(data: New<Client>): Promise<Client>
+   public async update(client: Client): Promise<Client>
+   ```
+
+   `New<T>` strips `id`, `createdAt`, `updatedAt`. `Updatable<T>` is `Partial<New<T>>`. Use dedicated `CreateXData` / `UpdateXData` only when generic composition becomes unreadable.
+4. Subfolders `types/{platform}` (e.g. `types/hh`, `types/avito`) are OK when entities have platform-specific variants.
+
+Good: `client.types.ts` (`ClientFindParams`, `ClientSearchParams`), `custom-field.types.ts`.
+Bad: `client.types.ts` containing the business entity itself.
+
+### `repositories/` — concrete `@Injectable()` classes
+
+The persistence contract in this project is a concrete class (not an `interface`). It injects `RepositoryManager` from `@common/infra/typeorm` and exposes domain-oriented methods. ORM rows are converted to domain models via a private `toDomain` mapper — never returned raw.
+
+```ts
+import { Injectable } from '@nestjs/common'
+import { RepositoryManager } from '@common/infra/typeorm'
+import * as Orm from '@common/infra/typeorm/entities/auth'
+import type { New } from '@common/types'
+import type { ClientAuth } from '../models/client-auth'
+
+@Injectable()
+export class AuthRepository {
+  constructor(private readonly repository: RepositoryManager) {}
+
+  public async findOne(clientId: number): Promise<ClientAuth | null> {
+    const auth = await this.repository.clientAuth.findOneBy({ clientId })
+    return auth ? this.toDomain(auth) : null
   }
-  return { ...task, status: 'completed', completedAt: new Date() }
-}
 
-export function isOverdue(task: Readonly<Task>): boolean {
-  return task.dueDate !== null
-    && task.status !== 'completed'
-    && task.dueDate < new Date()
+  public async create(data: New<ClientAuth>): Promise<ClientAuth> {}
+
+  public async update(auth: ClientAuth): Promise<ClientAuth> {}
+
+  public async delete(clientId: number): Promise<void> {}
+
+  private toDomain(auth: Orm.ClientAuth): ClientAuth {
+    return auth
+  }
 }
 ```
 
-Good fit: status transitions, role assertions, business predicates
+Rules:
 
-Bad fit: data fetching, persistence, anything requiring DI
+1. File: `{entity}.repository.ts`. Class: `{Entity}Repository`. No `Impl` / `Typeorm` suffix.
+2. Accept and return `models` / local `types` / primitives / shared types from `@common/types`. Never expose ORM types.
+3. Map ORM → domain via a private `toDomain(row)` method. Even when the shapes coincide today, keep the mapper — it's the anchor for future divergence.
+4. Method naming:
+   - `find*` / `get*` → single entity, may return `T | null`.
+   - `list*` → collection with a business scope (`listEnabled`, `listByClientId`). Returns `T[]`, never `null`.
+   - `search*` → filtered query with params. Returns `T[]` or `PaginatedResult<T>`.
+   - `create` / `update` / `delete` — standard CRUD.
+5. Methods separated by one blank line; private helpers (`toDomain`, `relations`) at the bottom.
+
+### `gateways/` — concrete `@Injectable()` classes
+
+External API integrations. The constructor injects an HTTP connector (a small `@Injectable()` class that encapsulates `baseURL`, headers, retry, rate-limiting — analogous to `RepositoryManager` in the persistence layer) and, when the API is per-client, an `AuthContext` from `@common/infra/context`.
+
+```ts
+import { Injectable } from '@nestjs/common'
+import { AuthContext } from '@common/infra/context'
+import { AmoConnector } from '../connectors/amo.connector'
+import type { AmoAuth } from '../models/amo-auth'
+
+@Injectable()
+export class AmoAuthGateway {
+  constructor(
+    private readonly authContext: AuthContext,
+    private readonly connector: AmoConnector
+  ) {}
+
+  public async authorize(code: string): Promise<AmoAuth> {}
+
+  public async checkAuth(): Promise<boolean> {
+    const api = this.connector.createApi(this.authContext.auth)
+    await api.get('/account')
+    return true
+  }
+}
+```
+
+Rules:
+
+1. File: `{entity}.gateway.ts`. Class: `{Entity}Gateway` (e.g. `AmoAuthGateway`, `HhResumeGateway`). No `Impl` / `Axios` suffix.
+2. Constructor injects the HTTP connector (`AmoConnector`, `HhConnector`, `AvitoConnector`, or an SDK client). Do NOT create raw `axios.create(...)` inline in the gateway — extract to a connector.
+3. Method names describe business intent: `authorize`, `checkAuth`, `getWithContacts`. Not `sendRequest`, `callApi`.
+4. Accept and return `models` / local `types` / primitives. Never expose `AxiosResponse`, SDK types, or raw webhook payloads — map at the boundary.
+5. Gateway-specific external shapes go in `gateways/types/` (or `gateways/types/{platform}/` for multiple platforms).
+
+### `gateways/types/` (optional)
+
+Shapes of the external API (request/response payloads). Kept next to the gateway instead of in the top-level `types/` to make the boundary explicit.
+
+### `tools/`
+
+In-process infrastructure capabilities — classes that do not hit an external system and are not persistence. Examples: password hashing, encryption, token generation, ID generation, CLS-buffered logging.
+
+```ts
+import { Injectable } from '@nestjs/common'
+import * as bcrypt from 'bcrypt'
+
+@Injectable()
+export class PasswordHasher {
+  private readonly rounds = 10
+
+  public async hash(password: string): Promise<string> {
+    return bcrypt.hash(password, this.rounds)
+  }
+
+  public async verify(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash)
+  }
+}
+```
+
+Rules:
+
+1. File: `{capability}.tool.ts` or `{capability}.{role}.ts` (e.g. `password-hasher.tool.ts`, `upload.logger.ts`). Class: `PascalCase` describing the capability (`PasswordHasher`, `UploadLogger`, `TokenGenerator`). No fixed suffix required.
+2. Do not use `tools/` for things that belong in `repositories/` (DB) or `gateways/` (external API).
+3. A tool may inject `@common/infra/context` CLS contexts when the capability is request-scoped (e.g. `UploadLogger` buffers steps per request).
+
+### Interface usage — when it's allowed
+
+Default is a concrete `@Injectable()` class. An `interface` is allowed only when the same contract has multiple concrete implementations that vary by a type parameter.
+
+Current example:
+
+```ts
+// resume/domain/gateways/types/resume.gateway.ts
+export interface ResumeGateway<Resume> {
+  getWithContacts(resume: Resume): Promise<Resume>
+
+  list(page: number, size: number, params: string): Promise<Resume[]>
+}
+```
+
+Implemented by `HhResumeGateway implements ResumeGateway<HhResume>` and `AvitoResumeGateway implements ResumeGateway<AvitoResume>`.
+
+Rule: use an interface only when polymorphism is real. Do not declare an interface just to "have a contract".
 
 ### `exceptions/`
 
-Store domain-specific exception classes.
+Domain-specific errors. Subclass `DomainException` from `@common/exceptions`.
+
+Not-found example:
+
+```ts
+import { DomainException } from '@common/exceptions'
+
+export class ClientAuthNotFound extends DomainException {
+  constructor(clientId: number) {
+    super({
+      code: 'CLIENT_AUTH_NOT_FOUND',
+      message: `Не удалось найти авторизационные данные по ID клиента: ${clientId}`,
+      metadata: { clientId }
+    })
+  }
+}
+```
+
+Conflict example:
+
+```ts
+import { DomainException } from '@common/exceptions'
+
+export class ClientExistsByName extends DomainException {
+  constructor(name: string) {
+    super({
+      code: 'CLIENT_EXISTS_BY_NAME',
+      message: `Клиент с именем «${name}» уже существует`,
+      metadata: { name }
+    })
+  }
+}
+```
 
 Rules:
 
-1. Add this folder when the module needs explicit domain errors
-2. Use only for business rule violations, invalid transitions, or missing required business state
-3. Do not use for HTTP exceptions, timeouts, SDK failures, ORM failures, serialization errors, or other infrastructure errors
-4. Translate infrastructure errors in the infra layer (gateway/repository implementations) or in the use case before they become domain exceptions
+1. File: `{error-name}.ts` (e.g. `client-not-found.ts`). Class: `{ErrorName}` (e.g. `ClientNotFound`). No `Exception` suffix.
+2. Message is in Russian. `code` is `UPPER_SNAKE_CASE`.
+3. `metadata` carries the values needed to explain the error downstream (logs, transport mapping). Pass the raw identifiers/names, not formatted strings.
+4. Use only for business rule violations / invalid state. Infrastructure errors (timeouts, SDK failures, DB errors) stay in the infra layer and are translated at the boundary before reaching a domain exception.
 
-Naming:
+### `domain/index.ts` — public API
 
-- File: `{error-name}.ts` in `kebab-case` (e.g. `relation-not-found.ts`, `form-not-linked.ts`)
-- Class: `{ErrorName} extends DomainException` (e.g. `RelationNotFound`, `FormNotLinked`); import `DomainException` from `@common/domain`
-
-Good fit: `relation-not-found.ts`, `form-not-linked.ts`, `interview-date-not-found.ts`
-
-Bad fit: `api-timeout.ts`, `database-connection-error.ts` (infrastructure errors)
-
-## Repository Method Naming
-
-Methods in repository classes that retrieve a single entity must follow the `find` / `get` naming convention:
-
-| Prefix | Return type | Behavior when not found |
-| --- | --- | --- |
-| `find*` | `Promise<Model \| null>` | Returns `null` |
-| `get*` | `Promise<Model>` | Throws a domain exception (e.g. `NotFound`) |
-
-Both patterns are valid. When generating new code, prefer `find*` (`findById`, `findOne`, `findBy`).
-
-Methods that return a collection always return `Promise<Model[]>` — an empty array when nothing matches, never `null`. **Name those methods with the `list*` prefix** (e.g. `listByWorkspaceId`, `listMembersInWorkspace`, `listForUser`). Use a suffix or middle phrase that states the business scope (workspace, user, filter key), not a generic `findAll` unless the domain truly has no narrower name.
-
-`search*` remains appropriate when the method's intent is **search or filter by params** (a dedicated params type); it still returns `Promise<Model[]>` and never `null`.
-
-Bad:
+Re-export the domain's public surface. Symbols NOT exported here are considered internal; other modules must not import them.
 
 ```ts
-getById(id: number): Promise<Contact | null>
-findAll(): Promise<Contact[] | null>
-findByWorkspaceId(workspaceId: string): Promise<Member[]>
+export type { Client } from './models/client'
+export type { ClientFindParams, ClientSearchParams } from './types'
+export { hhConfigDefault } from './models/hh-config'
+
+export { ClientNotFound } from './exceptions/client-not-found'
+export { ClientExistsByName } from './exceptions/client-exists-by-name'
 ```
 
-Good:
+Rules:
 
-```ts
-findById(id: number): Promise<Contact | null>
-getById(id: number): Promise<Contact>
-listByWorkspaceId(workspaceId: string): Promise<Member[]>
-search(params: ContactSearchParams): Promise<Contact[]>
-```
-
-## Repository Method Argument Types
-
-For `create` and `update` methods in repositories, prefer shared generic types from `src/common/domain`:
-
-- `New<T>` — strips system fields (`id`, `createdAt`, `updatedAt`) from the model; use for `create`
-- `Updatable<T>` — `Partial<New<T>>`; use for `update`
-
-These types are built on top of `SystemFields` — also in `src/common/domain`.
-
-1. For `create`: prefer `New<Model>`
-2. For `update`: prefer `id` + `Updatable<Model>`
-3. When `New<Model>` is not enough (model has extra server-side fields like `completedAt`), use `Omit<New<Model>, 'field'>` inline
-4. Dedicated types like `CreateUserData` or `UpdateUserData` are acceptable when generic composition becomes unreadable, but `New<Model>` and `Updatable<Model>` are preferred by default
-
-Preferred:
-
-```ts
-create(data: New<User>): Promise<User>
-update(id: string, data: Updatable<User>): Promise<User>
-```
-
-Acceptable when generic composition is too complex:
-
-```ts
-create(data: CreateUserData): Promise<User>
-```
-
-Edge case — extra server-side fields:
-
-```ts
-create(data: Omit<New<Task>, 'completedAt'>): Promise<Task>
-```
+1. Flat exports by default. Section headers `/** === Models === */` are optional — use them only in large files (≥20 exports).
+2. `{module}.domain.module.ts` is NOT re-exported from `index.ts` — neighboring Nest modules import it directly by its file path.
+3. Concrete repository / gateway classes are usually NOT re-exported either — use cases import them from their file path, Nest modules consume them via `DomainModule.exports`.
 
 ## Import Rules
 
-Inside `src/modules/{moduleName}/domain/**`, prefer only these imports:
+Inside `src/modules/{moduleName}/domain/**`, these imports are allowed:
 
-1. Neighbor files from the same module's `domain/`
-2. Shared types from `@common/domain`
-3. `zod` for schema definitions
-4. `@prisma/client` for 1:1 entity types (when no custom schema needed)
+1. Neighbor files from the same module's `domain/`.
+2. `@common/*` (types, exceptions, utils, decorators, validators, infra).
+3. External libraries — grouped by role (repository / gateway / tool classes are concrete implementations, so framework imports are expected):
+   - Nest core: `@nestjs/common`, `nestjs-cls`
+   - ORM: `typeorm`
+   - HTTP: `axios`, `axios-retry`
+   - Rate-limiting: `bottleneck`
+   - Crypto / hashing: `bcrypt`, `jsonwebtoken`
+   - DTO validation: `class-validator`, `class-transformer`
+4. Another module's public API via its `domain/index.ts`: `import type { ClientAuth } from '@modules/auth/domain'`.
 
-Import path style:
+Forbidden:
 
-1. Always use direct paths to specific files — no barrel imports
-2. `import { UserCredentials } from '../domain/schemas/user-credentials'` — good (direct path)
-3. `import { UserCredentials } from '../domain'` — bad (barrel import, barrels are not used)
+1. Importing from another module's internal files when a public export exists via `domain/index.ts`.
+2. Importing from the same module's own `domain/index.ts` instead of local files.
+3. Importing from `use-cases/**` of any module — dependency direction is `use-cases → domain`, not the reverse.
 
-Forbidden imports:
-
-1. Anything from `infra/**`
-2. Anything from `use-cases/**`
-3. Controllers, Nest modules, cron classes, or transport adapters
-4. Framework or library types such as `@nestjs/*`, `axios`, `typeorm`, `class-validator`, and `class-transformer` (except `zod`)
+Use barrel paths (`@common/types`) instead of deep ones (`@common/types/generics`).
 
 ## Anti-Patterns
 
-1. Creating schemas just to mirror Prisma types without any changes — use `@prisma/client` types directly
-2. Using technical method names such as `sendRequest`, `callApi`, `runQuery`, or `executeSql` in repositories — prefer business-intent names
-3. Using `any`, `unknown`, or `Record<string, unknown>` as a lazy escape hatch
-4. Turning infrastructure failures (timeouts, connection errors, SDK exceptions) into domain exceptions — translate them at the boundary
-5. Creating duplicate concepts with names like `Lead`, `LeadModel`, `LeadData`, and `LeadPayload` for the same business meaning — prefer one canonical name
-6. Creating a `domain/index.ts` barrel file — use direct file imports
-7. Creating `di.tokens.ts` with Symbol tokens — inject by class reference
-8. Placing contract interfaces in `domain/` — concrete classes live in `infra/`
+1. Creating a `repository` for an external API (amoCRM, HH, Avito) — external API = `gateway`.
+2. Creating a `gateway` for database access — DB = `repository`.
+3. Declaring an `interface` for a contract that has only one implementation — use a class.
+4. Using `any` / `unknown` / `Record<string, unknown>` as a lazy escape hatch in method signatures.
+5. Placing ORM entity classes inside `domain/models/` — they belong to `common/infra/typeorm/entities/`.
+6. Exposing `AxiosResponse`, SDK types, or raw DB rows from a repository / gateway method.
+7. Re-exporting `{module}.domain.module.ts` from `domain/index.ts`.
+8. Creating duplicate concepts for the same business meaning (`Client`, `ClientModel`, `ClientData`, `ClientPayload`). Pick one canonical name.
+9. Creating empty folders "for future use". Add a folder only when you put a file in it.

@@ -1,8 +1,3 @@
----
-name: git-push
-disable-model-invocation: true
----
-
 # Git Push
 
 ## Workflow
@@ -15,7 +10,7 @@ disable-model-invocation: true
 ## Rules
 
 1. Use only after an explicit user request to push.
-2. Do not create commits. Commit is handled by the separate `git-commit` skill.
+2. Do not create commits. Commit is handled by the separate `git-commit` command.
 3. Do not create MR or PR.
 4. If there are no local commits to push, explain and stop.
 5. If push is rejected, report the git error and stop.

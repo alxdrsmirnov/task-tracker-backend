@@ -1,8 +1,3 @@
----
-name: git-commit
-disable-model-invocation: true
----
-
 # Git Commit
 
 ## Workflow
@@ -41,7 +36,7 @@ Use past tense that describes completed work, and start the description after `:
 ## Rules
 
 1. Always stage all changes with `git add .` before commit.
-2. Do not push. Push is handled by the separate `git-push` skill.
+2. Do not push. Push is handled by the separate `git-push` command.
 3. Do not create MR or PR links.
 4. Do not commit secrets or `.env`-like files unless the user explicitly asks.
 5. If there is nothing to commit, say so and stop.

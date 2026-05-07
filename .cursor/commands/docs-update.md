@@ -1,8 +1,3 @@
----
-name: docs-update
-disable-model-invocation: true
----
-
 # Docs Update
 
 ## Workflow
@@ -80,7 +75,7 @@ modules/{module}/
 │       └── ...
 │
 ├── infra/
-│   ├── {module}.infra.module.ts
+│   ├── {module}.domain.module.ts
 │   └── prisma/
 │       └── ...
 │

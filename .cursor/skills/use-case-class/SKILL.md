@@ -1,101 +1,278 @@
 ---
 name: use-case-class
-description: Creates and refactors declarative use case classes with a single public execute() method. Use when creating or editing classes in folders named use-cases or use_cases, or when a class behaves like an application use case with one public execute() method.
+description: Creates and refactors declarative use case classes with a single public execute() method. Use when creating or editing classes in `use-cases/` folders, or when working with `use-case`, `use-cases`, `usecase`, `use case`, `case`, `cases`, `execute()`, or `business scenario`.
 ---
 
 # Use Case Class
 
+## Cheat Sheet
+
+- File: `{case-name}.ts` (kebab-case). Class: `{CaseName}` — **no `Case` suffix, no `.case.ts` extension**.
+- One public method: `execute()`.
+- `execute()` **must have an explicit return type** (`Promise<T>` or `Promise<void>`). Type inference is forbidden.
+- `execute()` accepts a DTO class (+ `@ValidateDto()`) OR nothing. Raw primitives / enums as parameters are forbidden — always wrap input in a DTO, even for a single field.
+- DI: inject concrete classes directly (`private readonly authRepo: AuthRepository`).
+- Throw `DomainException` subclasses from private helpers; prefer the `throwXxx(): never` pattern.
+- `DomainException` constructor signature: `super({ code, message, metadata? })`.
+- Exception messages in Russian. Code: `UPPER_SNAKE_CASE`.
+- Use CLS contexts (`AuthContext`, `ClientContext`, `LogContext`) for cross-cutting data — don't pass `clientId` / `userId` through DTOs when they're already in context.
+
 ## Priority
 
-Rules in this skill take precedence over patterns found in existing project code.
-If existing use cases violate these rules — do NOT copy their patterns. Follow this skill.
+Rules in this skill take precedence over patterns found in older project code. If an existing use case violates these rules — do NOT copy its pattern. Follow this skill.
 
 ## Goal
 
-`execute()` reads as a business scenario. A developer opens the class, reads `execute()`,
-and understands the full business flow without unpacking implementation details.
+`execute()` reads as a business scenario. A developer opens the class, reads `execute()`, and understands the full flow without unpacking implementation details. Technical details, validations, data loading, and branching live in private helpers.
 
-Technical details, validations, data loading, and mappings live in private helper methods.
+## Naming
 
-## Domain Exceptions Instead of Silent Returns
+- File: kebab-case without suffixes — `authorize-hh.ts`, `create-client.ts`, `list-clients.ts`.
+- Class: PascalCase, verb-first, **no `Case` / `UseCase` suffix** — `AuthorizeHh`, `CreateClient`, `ListClients`.
+- DTO file: `{case-name}.dto.ts` inside `use-cases/dto/`.
+- DTO class: `{CaseName}Dto` — `AuthorizeDto`, `CreateClientDto`.
 
-This is the most important rule.
+## Structure
 
-**Every private method that provides data for the next business step
-must return `T` or throw a domain exception.**
+Reading order inside the class:
 
-Never return `null` / `undefined` / `false` only to let `execute()` silently stop with `return`.
-The exception must be thrown inside the private method, not checked in `execute()`.
+1. Constructor (dependencies).
+2. `public async execute(...)`.
+3. Private helpers.
+4. Private state (readonly maps, relation configs, etc.) at the bottom if present.
 
-Forbidden:
+Example with private state:
 
 ```ts
-@ValidateDto()
-public async execute(dto: SyncRelationDto): Promise<void> {
-  const comment = this.getRelevantComment(dto)
-  if (!comment) return
+@Injectable()
+export class RunReadyParsers {
+  constructor(private readonly parserRepository: ParserRepository) {}
 
-  const ids = this.extractLinkedIds(dto)
-  if (!ids) return
+  public async execute(): Promise<void> {
+    const parsers = await this.parserRepository.listEnabled()
+    parsers.filter((p) => this.isReadyToRun(p)).forEach(/* ... */)
+  }
 
-  const relation = await this.loadRelation(ids.leadId)
-  if (!relation) return
+  private isReadyToRun(parser: Parser): boolean {
+    const intervalSec = this.scheduleIntervals[parser.schedule]
+    return Date.now() / 1000 - parser.lastRun >= intervalSec
+  }
 
-  await this.syncRelation(comment, ids, relation)
+  private readonly scheduleIntervals: Record<ParserSchedule, number> = {
+    EVERY_30_MINUTES: 30 * 60,
+    EVERY_DAY: 24 * 60 * 60
+  }
 }
 ```
 
-Required:
+Extract from `execute()` when:
+
+- A block has a clear business meaning that can be named.
+- A condition or branch is large.
+- Several calls form one semantic step.
+
+Do not create extra use cases just to shorten `execute()`.
+
+## Input Contract
+
+`execute()` takes zero or one parameter. Two valid forms:
+
+- **With input** → always a DTO class + `@ValidateDto()`. Even for a single field / single primitive, wrap it in a DTO. Raw primitive / `enum` parameters are forbidden.
+- **No input** → no DTO, no `@ValidateDto()`.
+
+### 1. DTO class + `@ValidateDto()` — any input
+
+```ts
+import { ValidateDto } from '@common/decorators'
+import { CreateClientDto } from '@modules/client/use-cases/dto'
+
+@Injectable()
+export class CreateClient {
+  constructor(private readonly clientRepository: ClientRepository) {}
+
+  @ValidateDto()
+  public async execute(dto: CreateClientDto): Promise<Client> {}
+}
+```
+
+Single-field DTO — still a class, still `@ValidateDto()`:
+
+```ts
+// use-cases/dto/get-client-auth.dto.ts
+import { IsInt, IsPositive } from 'class-validator'
+
+export class GetClientAuthDto {
+  @IsInt()
+  @IsPositive()
+  clientId: number
+}
+```
+
+```ts
+@Injectable()
+export class GetClientAuth {
+  constructor(private readonly authRepository: AuthRepository) {}
+
+  @ValidateDto()
+  public async execute(dto: GetClientAuthDto): Promise<ClientAuth> {
+    const auth = await this.authRepository.findOne(dto.clientId)
+    return auth ?? this.throwAuthNotFound(dto.clientId)
+  }
+
+  private throwAuthNotFound(clientId: number): never {
+    throw new ClientAuthNotFound(clientId)
+  }
+}
+```
+
+Rules:
+
+- DTO must be a **class** (not an interface / type alias) — `Reflect.getMetadata` needs a runtime class.
+- DTO fields use `class-validator` decorators (`@IsString()`, `@IsInt()`, `@IsEnum()`, `@MinLength()`, etc.).
+- DTO files live in `use-cases/dto/`, named `{case-name}.dto.ts`.
+- Data from auth context (e.g. `userId`, `clientId`) usually does NOT belong in the DTO — get it from `AuthContext` / `ClientContext` instead (see "CLS Contexts" below).
+
+What `@ValidateDto()` does internally:
+
+1. Reads the DTO class via `Reflect.getMetadata('design:paramtypes', ...)`.
+2. Transforms the plain input into a class instance via `plainToInstance`.
+3. Validates via `class-validator`.
+4. Throws `DtoFailed` with formatted errors on failure.
+5. Otherwise calls the original `execute()` with the validated instance.
+
+### 2. No parameters (no decorator)
+
+```ts
+@Injectable()
+export class RunReadyParsers {
+  public async execute(): Promise<void> {}
+}
+```
+
+Use for scheduled tasks / internal triggers with no caller input.
+
+## Return Type — explicit and mandatory
+
+`execute()` must declare its return type explicitly. Relying on TypeScript inference is forbidden.
+
+Good:
+
+```ts
+public async execute(dto: RegisterDto): Promise<UserTokens> {}
+public async execute(dto: GetClientDto): Promise<Client | null> {}
+public async execute(): Promise<void> {}
+```
+
+Bad:
+
+```ts
+public async execute(dto: RegisterDto) {}           // inferred — NOT allowed
+public async execute() {}                           // inferred — NOT allowed
+```
+
+Why: the contract of the use case is visible immediately, consumer types don't drift when internals change, and IDE autocomplete doesn't depend on checking the full method body.
+
+## Dependency Injection
+
+**Default: inject concrete classes directly.** Repositories, gateways, and tools in this project are concrete `@Injectable()` classes (see `domain-structure` skill), so there is no interface to hide behind a token.
+
+```ts
+import { AuthRepository } from '@modules/auth/domain/repositories/auth.repository'
+import { HhAuthGateway } from '@modules/auth/domain/gateways/hh-auth.gateway'
+import { AuthContext } from '@common/infra/context'
+
+@Injectable()
+export class AuthorizeHh {
+  constructor(
+    private readonly authContext: AuthContext,
+    private readonly hhAuthGateway: HhAuthGateway,
+    private readonly authRepository: AuthRepository
+  ) {}
+}
+```
+
+Deep import paths to domain classes (`@modules/auth/domain/repositories/auth.repository`) are expected. Neighboring domain modules are pulled via `{module}.domain.module.ts` in the Nest module's `imports`.
+
+### Exception: polymorphic contracts
+
+When a contract has multiple real implementations (e.g. `ResumeGateway<T>` with `HhResumeGateway` and `AvitoResumeGateway`), injecting by interface is valid.
+
+Two valid ways, depending on what the use case needs:
+
+1. **Inject a specific implementation directly** — when the use case knows which one it needs:
+
+   ```ts
+   constructor(private readonly resumeGateway: HhResumeGateway) {}
+   ```
+
+2. **Inject by interface through a token** — when the implementation is chosen at wiring time (different modules can provide a different class for the same role):
+
+   ```ts
+   import { RESUME_GATEWAY } from '@modules/resume/domain'
+   import type { ResumeGateway } from '@modules/resume/domain'
+
+   constructor(
+     @Inject(RESUME_GATEWAY)
+     private readonly resumeGateway: ResumeGateway<Resume>
+   ) {}
+   ```
+
+   The token lives in the domain that owns the interface; wiring lives in the consumer module's NestJS module. Use this only when you actually have swap points — not "just in case".
+
+If you find yourself introducing a token for a single-implementation contract, don't — inject the class.
+
+## Throwing Domain Exceptions
+
+Every private helper that provides data for the next business step must return `T` or throw. Never return `null` / `undefined` / `false` just to let `execute()` silently `return`.
+
+Same helper (`getClientAuth`), two valid implementations:
+
+### Pattern A — throw inside the loader
+
+```ts
+private async getClientAuth(clientId: number): Promise<ClientAuth> {
+  const auth = await this.authRepository.findOne(clientId)
+  if (!auth) {
+    throw new ClientAuthNotFound(clientId)
+  }
+  return auth
+}
+```
+
+### Pattern B — `throwXxx(): never` helper (preferred in this project)
+
+```ts
+private async getClientAuth(clientId: number): Promise<ClientAuth> {
+  const auth = await this.authRepository.findOne(clientId)
+  return auth ?? this.throwClientAuthNotFound(clientId)
+}
+
+private throwClientAuthNotFound(clientId: number): never {
+  throw new ClientAuthNotFound(clientId)
+}
+```
+
+Why pattern B is useful: the loader stays a one-liner (`return x ?? throwXxx(...)`), the throw logic is reusable, and `: never` lets TS narrow the return type to `ClientAuth`.
+
+### Forbidden — silent returns
 
 ```ts
 @ValidateDto()
 public async execute(dto: SyncRelationDto): Promise<void> {
   const comment = this.getRelevantComment(dto)
+  if (!comment) return                    // FORBIDDEN
+
   const ids = this.extractLinkedIds(dto)
-
-  const relation = await this.loadRelation(ids.leadId)
-
-  await this.syncRelation(comment, ids, relation)
-}
-
-private getRelevantComment(dto: SyncRelationDto): Comment {
-  const comment = dto.comments.at(-1)
-  if (!comment) {
-    throw new RelevantCommentNotFound()
-  }
-  return comment
-}
-
-private extractLinkedIds(dto: SyncRelationDto): LinkedIds {
-  const ids = this.parseLinkedIds(dto)
-  if (!ids) {
-    throw new LinkedIdsNotFound()
-  }
-  return ids
-}
-
-private async loadRelation(leadId: number): Promise<Relation> {
-  const relation = await this.relationRepository.findByAmoId(leadId)
-  if (!relation) {
-    throw new RelationNotFound(leadId)
-  }
-  return relation
+  if (!ids) return                        // FORBIDDEN
 }
 ```
 
 ### When `T | null` is acceptable
 
-Only when `null` drives a meaningful business branch — each branch has a concrete action or result:
+Only when `null` drives a meaningful business branch — each branch has a concrete action:
 
 ```ts
-// Early return — null triggers the main flow
 const existing = await this.findExistingRelation(dto)
-if (existing) {
-  return existing
-}
-
-// Different actions per branch
-const existing = await this.findExisting(dto)
 if (existing) {
   await this.updateRelation(existing, dto)
 } else {
@@ -103,171 +280,125 @@ if (existing) {
 }
 ```
 
-Both branches produce a real business outcome. This is NOT the same as `if (!x) return` / `return undefined`.
-
 ### Boolean predicates
 
-Use `boolean` only for explicit business predicates that choose between business branches.
-
-Good — predicate selects a branch, both branches continue the scenario:
-
-```ts
-if (this.shouldSyncPhone(dto)) {
-  await this.syncPhone(dto)
-}
-await this.completeRegistration(dto)
-```
-
-Bad — predicate exists only to justify early `return`:
-
-```ts
-if (!this.isValidForProcessing(dto)) return
-```
-
-Here validation should happen inside a private method that throws a domain exception.
-
-## Input Contract
-
-`execute()` accepts zero or one parameter.
-When `execute()` has a parameter, it is typed as a DTO class with `@ValidateDto()` on the method.
-The caller may pass a plain object — `@ValidateDto()` converts it into a class instance via `plainToInstance`.
-When `execute()` has no parameters, `@ValidateDto()` is not needed.
-
-### Rules
-
-- `execute()` takes 0 or 1 parameter; when present — `dto: XxxDto`
-- `@ValidateDto()` is required only when `execute()` has a parameter
-- DTO must be a **class** (not an interface or type alias) — `Reflect.getMetadata` requires a runtime class
-- DTO fields use `class-validator` decorators (`@IsString()`, `@IsEmail()`, `@MinLength()`, etc.)
-- DTO files live in `use-cases/dto/`, named `{case-name}.dto.ts`
-- Data that comes from auth context (e.g. `userId`) is included in the DTO — the controller populates it
-
-### What `@ValidateDto()` does
-
-1. Determines the DTO class via `Reflect.getMetadata('design:paramtypes', ...)`
-2. Transforms the plain object into a class instance via `plainToInstance`
-3. Validates the instance via `class-validator`
-4. On failure — throws `DtoValidationFailed` with formatted errors
-5. On success — calls the original method with the validated DTO instance
-
-### Example
-
-```ts
-// use-cases/dto/register.dto.ts
-import { IsEmail, IsString, MinLength } from 'class-validator'
-
-export class RegisterDto {
-  @IsEmail()
-  email: string
-
-  @IsString()
-  @MinLength(6)
-  password: string
-
-  @IsString()
-  name: string
-}
-```
-
-```ts
-// use-cases/register.case.ts
-@Injectable()
-export class RegisterCase {
-  constructor(
-    private readonly userCredsRepo: UserCredentialsRepository,
-  ) {}
-
-  @ValidateDto()
-  public async execute(dto: RegisterDto): Promise<UserTokens> {
-    await this.ensureEmailNotTaken(dto.email)
-    const user = await this.createUser(dto)
-    const credentials = await this.createCredentials(user.id, dto.password)
-    return this.generateTokens(user, credentials)
-  }
-
-  // private methods...
-}
-```
-
-### Controller passes data into DTO
-
-```ts
-// HTTP controller
-@Post('register')
-register(@Body() body: RegisterDto) {
-  return this.registerCase.execute(body)
-}
-
-// WS controller
-async create(client: Socket, data: CreateTaskWsPayload) {
-  const dto = { ...data, userId: client.data.userId }
-  return this.createTask.execute(dto)
-}
-```
-
-## Core Rules
-
-1. One public method: `execute()`
-2. `execute()` takes 0 or 1 parameter; when a parameter is present — it is a DTO class with `@ValidateDto()`
-3. One use case = one complete business scenario; do not split without a clear business boundary
-4. `execute()` delegates to well-named private methods
-5. Private methods return required data or throw domain exceptions
-6. Do not import another module's use case; use the other module's exported infra classes, domain schemas, or domain exceptions
-7. `private` by default; `protected` only when inheritance requires it
-8. Do not introduce `any`
+Use `boolean` only for predicates that select between business branches, both of which continue the scenario. Do not use a predicate to justify an early silent `return`.
 
 ## Exception Rules
 
-- Throw only subclasses of `DomainException` — never `HttpException`, raw `Error`, or other base classes
-- Create a dedicated exception class for every domain failure
-- Class names describe the business problem, without `Exception` suffix
-- The error message lives inside the class, written in Russian
-- Store in the current module's `domain/exceptions/`; create the directory if it does not exist
+A use case throws only subclasses of `DomainException` from `@common/exceptions` — never `HttpException`, raw `Error`, or `new Error('msg')`. One dedicated exception class per business failure, stored in the module's `domain/exceptions/`.
 
-Good names: `RelationAlreadyExists`, `TargetEntityNotFound`, `InvalidRelationSource`
+See `domain-structure` skill → `### exceptions/` for the full signature, naming, and examples.
+
+## CLS Contexts — cross-cutting data
+
+The project uses CLS-based contexts from `@common/infra/context` to pass current user / client / log data across layers without threading it through every method.
+
+Available contexts:
+
+- `AuthContext` — current `ClientAuth`.
+- `ClientContext` — current `Client`.
+- `LogContext` — current log identifiers (`resumeLogId`, `unloadLogId`).
+
+Name the injected field with the full context name — `authContext`, `clientContext`, `logContext`. Do not abbreviate to `authCtx` / `clientCtx` / `logCtx`.
+
+### When to use a context vs. a DTO parameter
+
+| Data | Source |
+| --- | --- |
+| Current client / auth / log ids — set once per request | Context |
+| Operation-specific input (command fields, search filters, form data) | DTO |
+
+Example — using `ClientContext` instead of passing `clientId` in the DTO:
 
 ```ts
-export class RelationNotFound extends DomainException {
-  constructor(leadId: number) {
-    super(`Связь для сделки ${leadId} не найдена`)
+@Injectable()
+export class UpdateAuthCredentials {
+  constructor(
+    private readonly clientContext: ClientContext,
+    private readonly authRepository: AuthRepository
+  ) {}
+
+  private get client() {
+    return this.clientContext.client
+  }
+
+  @ValidateDto()
+  public async execute(dto: UpdateAuthCredentialsDto): Promise<ClientAuth> {
+    const auth = await this.getAuth()
+    /* ... mutate auth using dto ... */
+    return this.authRepository.update(auth)
+  }
+
+  private async getAuth(): Promise<ClientAuth> {
+    const auth = await this.authRepository.findOne(this.client.id)
+    return auth ?? this.throwClientAuthNotFound(this.client.id)
+  }
+
+  private throwClientAuthNotFound(clientId: number): never {
+    throw new ClientAuthNotFound(clientId)
   }
 }
 ```
 
-## Naming
+A `private get client()` shortcut is a valid pattern when the context value is used in several methods.
 
-Method names describe business intent.
+## Transactions
 
-Good: `validateCommand`, `loadTargetEntity`, `buildRelation`, `persistRelation`, `findExistingRelation`
+Wrap multi-write operations with `TransactionRunner.run(...)` from `@common/infra/typeorm`. Everything executed inside the callback runs in a single TypeORM transaction thanks to the CLS-based `TransactionContext`.
 
-Bad: `processData`, `handle`, `check`, `step1`, `runLogic`
+```ts
+import { TransactionRunner } from '@common/infra/typeorm'
 
-Do not add technical suffixes like `OrThrow`.
+@Injectable()
+export class CreateClient {
+  constructor(
+    private readonly transaction: TransactionRunner,
+    private readonly clientRepository: ClientRepository,
+    private readonly authRepository: AuthRepository
+  ) {}
 
-### Method prefix conventions
+  @ValidateDto()
+  public async execute(dto: CreateClientDto): Promise<Client> {
+    return this.transaction.run(async () => {
+      const client = await this.clientRepository.create({
+        name: dto.name,
+        isActive: dto.isActive
+      })
+      await this.authRepository.create({
+        clientId: client.id,
+        credentials: dto.credentials
+      })
+      return client
+    })
+  }
+}
+```
 
-- `get` / `load` / `extract` / `resolve` — always return `T` or throw a domain exception
-- `find` — may return `T | null` when `null` drives a meaningful business branch
+Rules:
 
-## Structure
+- Everything inside the `run` callback runs in the same DB transaction. Keep only DB writes / reads there.
+- Return from the callback only the data `execute()` actually needs. If a helper entity is created only as a side-effect (like `auth` tied to `client`), don't return it just to acknowledge its creation.
+- Side effects that must be durable only after commit (event emit, external API call, file write) go **after** `run` returns, not inside the callback.
 
-Reading order inside the class:
+## Method Naming
 
-1. Constructor (dependencies)
-2. `execute()`
-3. Private helper methods
+Method names describe business intent:
 
-Extract from `execute()` when:
+- `validateCommand`, `loadTargetEntity`, `buildRelation`, `persistRelation`, `findExistingRelation` — good.
+- `processData`, `handle`, `check`, `step1`, `runLogic` — bad.
 
-- A block has a clear business meaning that can be named
-- A condition or branch is large
-- Several calls form one semantic step
+Prefix conventions:
 
-Do not create extra use cases only to shorten `execute()`.
+- `get*` / `load*` / `extract*` / `resolve*` — always return `T` or throw.
+- `find*` — may return `T | null` when `null` drives a meaningful business branch.
+- `throw*` — private `: never` helper that throws a domain exception.
+
+No technical suffixes like `OrThrow`.
 
 ## Spacing
 
-No empty line between assignment and `if` that checks the same value:
+No empty line between an assignment and the `if` that checks the same value:
 
 ```ts
 const existing = await this.findExistingRelation(dto)
@@ -276,29 +407,54 @@ if (existing) {
 }
 ```
 
-## Refactoring
+## Module-level Wiring
+
+A use case is registered in the module's NestJS module at `src/modules/{m}/{m}.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common'
+import { ClientDomainModule } from './domain/client.domain.module'
+import { AuthDomainModule } from '@modules/auth/domain/auth.domain.module'
+import { CreateClient, ListClients, DeleteClient } from './use-cases'
+
+const useCases = [CreateClient, ListClients, DeleteClient]
+
+@Module({
+  imports: [ClientDomainModule, AuthDomainModule],
+  providers: [...useCases],
+  exports: [...useCases, ClientDomainModule]
+})
+export class ClientModule {}
+```
+
+Use cases are also re-exported from `src/modules/{m}/use-cases/index.ts` for convenient imports from the module's own wiring and from sibling modules that need to inject them.
+
+## Refactoring Existing Code
 
 When editing an existing use case:
 
-1. Keep observable behavior unless the user asked for changes
-2. Replace `if (!x) return` chains with domain exceptions in private methods
-3. Extract coherent chunks into well-named private methods
-4. Rename unclear methods to reflect business meaning
+1. Keep observable behavior unless the user asked for changes.
+2. Apply every rule from this skill. The most common drifts to fix: `Case` suffix, missing return type, primitive `execute()` parameter, `if (!x) return` chains, string-based `DomainException` constructor.
+
+## Anti-Patterns
+
+1. `Case` / `UseCase` suffix in class name or `.case.ts` file extension.
+2. Missing return type on `execute()`.
+3. Passing a raw primitive / enum into `execute()` instead of wrapping it in a DTO class.
+4. `if (!x) return` chains to silently stop `execute()`.
+5. Throwing `HttpException`, raw `Error`, or a `new Error('message')` from a use case.
+6. Passing `clientId` / `userId` through DTOs when the value is already in a CLS context.
+7. Using `any` anywhere in the use case.
+8. Multiple public methods on a use case class.
+9. Calling another module's use case directly — use the target module's public domain API instead (repositories / gateways / events), OR import the use case class through the target module's exports. Never reach into another module's `use-cases/*` file directly.
 
 ## Checklist
 
-Verify before finishing:
-
-- [ ] `execute()` takes 0 or 1 parameter
-- [ ] If `execute()` has a parameter: it is a DTO class, `@ValidateDto()` is applied, DTO is in `use-cases/dto/` with `class-validator` decorators
-- [ ] If `execute()` has no parameters: no `@ValidateDto()`
-- [ ] `execute()` reads as a business scenario, not implementation details
-- [ ] No `if (!x) return` chains — private methods return `T` or throw
-- [ ] Exceptions thrown inside private methods, not checked in `execute()`
-- [ ] `get` / `load` / `extract` / `resolve` return `T` or throw; `find` may return `T | null`
-- [ ] Exceptions in module's `domain/exceptions/`, no `Exception` suffix
-- [ ] Exception messages in Russian, inside the class
-- [ ] Only `DomainException` subclasses — no `HttpException`, no raw `Error`
-- [ ] Method names describe business intent
-- [ ] `private` by default
-- [ ] No `any`
+- [ ] File `{case-name}.ts`, class `{CaseName}` (no `Case` suffix, no `.case.ts`).
+- [ ] `execute()` has an explicit return type.
+- [ ] `execute()` accepts a DTO class (+ `@ValidateDto()`) or nothing — never a raw primitive / enum.
+- [ ] DI uses direct class injection.
+- [ ] No `if (!x) return` chains — throw from a private helper instead.
+- [ ] Only `DomainException` subclasses are thrown; exception messages in Russian, `code` in `UPPER_SNAKE_CASE`.
+- [ ] Cross-cutting data (current client / auth / log ids) comes from CLS contexts, not the DTO.
+- [ ] No `any`; no multiple public methods.
