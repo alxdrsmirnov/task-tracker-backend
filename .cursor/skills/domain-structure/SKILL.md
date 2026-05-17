@@ -49,7 +49,7 @@ domain/
 
 Minimum viable domain:
 
-```
+```text
 domain/
   index.ts
   {module}.domain.module.ts

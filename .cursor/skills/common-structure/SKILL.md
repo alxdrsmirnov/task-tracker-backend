@@ -22,7 +22,7 @@ description: Organizes `src/common/` by architectural layers and keeps shared co
 
 ## Target Shape
 
-```
+```text
 src/
   common/
     exceptions/          # DomainException, DtoFailed
@@ -42,7 +42,7 @@ src/
 
 These follow the same pattern as `infra/prisma/` — each technology gets its own folder with `index.ts` and NestJS module. Add only when the technology is actually present in the project:
 
-```
+```text
   common/
     infra/
       redis/             # RedisModule, RedisConnector (optional)
@@ -53,7 +53,7 @@ These follow the same pattern as `infra/prisma/` — each technology gets its ow
 
 Transport / execution slices live directly under `src/`, not under `src/common/`. Add only when needed:
 
-```
+```text
   queue/                 # BullMQ queue and workers (optional)
   cron/                  # scheduled tasks (optional)
 ```
