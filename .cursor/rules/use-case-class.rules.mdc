@@ -1,0 +1,178 @@
+---
+description: Structure and contract of use case classes — .case.ts extension, execute(), DTO + @ValidateDto(), throw patterns, transactions.
+globs: src/modules/*/use-cases/**
+---
+# Use Case Class
+
+## Cheat Sheet
+
+- File: `{case-name}.case.ts` (kebab-case, **`.case.ts` required**).
+- DTO file: `{case-name}.dto.ts` in `use-cases/dto/`.
+- One public method: `execute()`.
+- `execute()` **must have explicit return type** (`Promise<T>` or `Promise<void>`).
+- `execute()` accepts DTO + `@ValidateDto()` OR nothing. Raw primitives/enums forbidden.
+- DI: inject concrete classes directly.
+- Throw only `DomainException` subclasses; prefer `throwXxx(): never` pattern.
+- Exception messages: Russian. Code: `UPPER_SNAKE_CASE`.
+
+## Naming & Structure
+
+- File: `sign-up.case.ts`, `get-me.case.ts`, `get-user.case.ts`, `get-member.case.ts`.
+- Class: `SignUp`, `GetMe`, `GetUser`, `GetMember` (verb-first, PascalCase).
+- DTO class: `{CaseName}Dto` — `SignUpDto`, `GetMeDto`.
+
+Reading order: constructor → `execute()` → private helpers → private state.
+
+```ts
+@Injectable()
+export class SignUp {
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly credentialsRepository: UserCredentialsRepository,
+    private readonly passwordHasher: PasswordHasher
+  ) {}
+
+  @ValidateDto()
+  public async execute(dto: SignUpDto): Promise<User> {
+    await this.guardEmailNotTaken(dto.email)
+    const user = await this.createUser(dto)
+    await this.createCredentials(user, dto.password)
+    return user
+  }
+
+  private async guardEmailNotTaken(email: string): Promise<void> {
+    const existing = await this.userRepository.findByEmail(email)
+    if (existing) {
+      throw new EmailAlreadyExists(email)
+    }
+  }
+
+  private async createUser(dto: SignUpDto): Promise<User> {
+    return this.userRepository.create({ email: dto.email, name: dto.name })
+  }
+
+  private async createCredentials(
+    user: User,
+    password: string,
+  ): Promise<void> {
+    const hash = await this.passwordHasher.hash(password)
+    await this.credentialsRepository.create({
+      userId: user.id,
+      passwordHash: hash,
+    })
+  }
+}
+```
+
+## Input Contract
+
+- **With input** → DTO class + `@ValidateDto()` (even for single field).
+- **No input** → no DTO, no decorator.
+- DTO must be a **class** (not interface/type) — `Reflect.getMetadata` needs
+  runtime class.
+- DTO fields use `class-validator` decorators.
+
+## Return Type
+
+`execute()` must declare explicit return type:
+
+```ts
+// Good
+public async execute(dto: SignUpDto): Promise<User> {}
+public async execute(): Promise<void> {}
+
+// Bad
+public async execute(dto: SignUpDto) {}   // inferred — NOT allowed
+```
+
+## Throwing Exceptions
+
+Private helpers return `T` or throw — never return `null`/`undefined` just to
+let `execute()` silently `return`.
+
+Preferred pattern (`throwXxx(): never`):
+
+```ts
+private async getUser(userId: number): Promise<User> {
+  const user = await this.userRepository.findById(userId)
+  return user ?? this.throwUserNotFound(userId)
+}
+
+private throwUserNotFound(userId: number): never {
+  throw new UserNotFound(userId)
+}
+```
+
+Forbidden:
+
+```ts
+if (!member) return     // FORBIDDEN — silent return
+if (!ids) return         // FORBIDDEN
+```
+
+`T | null` acceptable only when `null` drives a meaningful business branch with
+concrete actions.
+
+## Transactions
+
+```ts
+import { TransactionRunner } from '@common/infra/prisma'
+
+@Injectable()
+export class SignUp {
+  constructor(private readonly transaction: TransactionRunner, ...) {}
+
+  @ValidateDto()
+  public async execute(dto: SignUpDto): Promise<User> {
+    return this.transaction.run(async () => {
+      const user = await this.userRepository.create(...)
+      await this.credentialsRepository.create(...)
+      return user
+    })
+  }
+}
+```
+
+- Only DB writes/reads inside `run` callback.
+- Side effects (events, external API calls) go AFTER `run` returns.
+
+## Method Naming
+
+- `get*`/`load*`/`resolve*` → return `T` or throw.
+- `find*` → may return `T | null`.
+- `throw*` → private `: never` helper.
+
+## Module Wiring
+
+```ts
+const useCases = [SignUp, SignIn]
+
+@Module({
+  imports: [AuthDomainModule, UserDomainModule],
+  providers: [...useCases],
+  exports: [...useCases, AuthDomainModule]
+})
+export class AuthModule {}
+```
+
+## Anti-Patterns
+
+- Missing `.case.ts` extension.
+- Missing return type on `execute()`.
+- Raw primitive/enum into `execute()` → wrap in DTO.
+- `if (!x) return` chains → throw from helper instead.
+- `HttpException` / raw `Error` from use case → `DomainException` only.
+- `any` anywhere.
+- Multiple public methods.
+- Calling another module's use case directly → use domain API or import through
+  target module's exports.
+
+## Checklist
+
+- [ ] File `{case-name}.case.ts`, class `{CaseName}`.
+- [ ] `execute()` has explicit return type.
+- [ ] `execute()` accepts DTO + `@ValidateDto()` or nothing.
+- [ ] DI uses direct class injection.
+- [ ] No `if (!x) return` chains.
+- [ ] Only `DomainException` subclasses; messages in Russian, `code` in `UPPER_SNAKE_CASE`.
+- [ ] No `any`; no multiple public methods.

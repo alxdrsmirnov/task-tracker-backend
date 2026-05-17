@@ -1,0 +1,103 @@
+---
+description: Structure of `src/common/` — where shared code belongs. Import paths, barrel exports, DomainException, Prisma infra.
+globs: src/common/**
+---
+# Common Structure
+
+`src/common/` — shared (cross-module) primitives only.
+
+## Target Shape
+
+```text
+src/
+  common/
+    exceptions/          # DomainException, DtoFailed
+    types/               # generics, enums (New<T>, PaginatedResult, Platform, ...)
+    utils/               # pure helpers, no I/O (deepMerge)
+    validators/          # class-validator helpers (IsNullable)
+    decorators/          # cross-cutting decorators (ValidateDto)
+    infra/
+      prisma/            # PrismaModule, PrismaService, PrismaConnector,
+                       # models/, schema.prisma, migrations/,
+                       # TransactionRunner, TransactionContext
+  http/                  # top-level — controllers, filters, guards, pipes
+  modules/               # business modules
+```
+
+## Classification Table
+
+| Artifact | Folder |
+| --- | --- |
+| Base exceptions (DomainException, DtoFailed) | `common/exceptions/` |
+| Shared type, enum, generic | `common/types/` |
+| Pure helper, no I/O | `common/utils/` |
+| Reusable `class-validator` helper | `common/validators/` |
+| Cross-cutting method decorator | `common/decorators/` |
+| Prisma infra (module, models, migrations, txn) | `common/infra/prisma/` |
+| HTTP controller / filter / guard / pipe | `src/http/` (TOP-LEVEL) |
+| Module domain exceptions | `modules/{m}/domain/exceptions/` |
+
+## Rules
+
+- Each folder has `index.ts` barrel.
+- Import via `@common/{folder}` barrel — never deep paths.
+- Prisma models live in `common/infra/prisma/models/` — NOT in module `domain/`.
+- Prisma access: `this.prisma.db` (via `PrismaService`).
+- HTTP is TOP-LEVEL (`src/http/`) — not in `common/`.
+
+## Import Paths (always via barrel)
+
+| What | Path |
+| --- | --- |
+| Types, enums, generics | `@common/types` |
+| `DomainException`, `DtoFailed` | `@common/exceptions` |
+| Pure helpers | `@common/utils` |
+| `ValidateDto` | `@common/decorators` |
+| `IsNullable` | `@common/validators` |
+| Prisma module / service / transaction | `@common/infra/prisma` |
+
+Good: `import { PrismaService } from '@common/infra/prisma'`  
+Bad: `import { PrismaService } from '@common/infra/prisma/prisma.service'`
+
+## DomainException
+
+```ts
+// common/exceptions/domain.exception.ts
+export abstract class DomainException extends Error {
+  constructor(params: {
+    code: string
+    message: string
+    cause?: Error
+    metadata?: Record<string, unknown>
+  }) {
+    super(
+      params.message,
+      params.cause ? { cause: params.cause } : undefined,
+    )
+    this.code = params.code
+    this.metadata = params.metadata
+  }
+  public readonly code: string
+  public readonly metadata?: Record<string, unknown>
+}
+```
+
+## Anti-Patterns
+
+- Standalone files in `common/` root → classify and put in subfolder
+- HTTP code in `common/infra/` → top-level
+- Prisma models in `modules/{m}/domain/` → `common/infra/prisma/models/`
+- Module exceptions in `common/exceptions/` → module's `domain/exceptions/`
+- Empty NestJS module for a single provider → register directly in infra module
+- Deep import path → use barrel
+- Cross-subfolder re-export → each barrel exports only its own content
+
+## Checklist
+
+- [ ] File in correct folder (see table)
+- [ ] Import via `@common/{folder}` barrel, not deep path
+- [ ] Prisma models NOT in `modules/*/domain/`
+- [ ] Module exceptions NOT in `common/exceptions/`
+- [ ] No orphan files in `common/` root
+- [ ] HTTP code NOT in `common/`
+- [ ] Each subfolder has `index.ts`
