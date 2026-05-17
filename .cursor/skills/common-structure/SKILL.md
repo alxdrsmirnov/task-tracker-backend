@@ -9,12 +9,12 @@ description: Organizes `src/common/` by architectural layers and keeps shared co
 
 - `src/common/` hosts shared (cross-module) primitives only.
 - Subfolders: `exceptions/`, `types/`, `utils/`, `validators/`, `decorators/`, `infra/`.
-- `infra/` is split by technology: `typeorm/`, `redis/`, `context/`.
+- `infra/` is split by technology: `prisma/` (the ORM in use). Other infra layers (`redis/`, `context/`) are optional examples — add them only when the technology is actually present.
 - Each folder has `index.ts` barrel. Import via `@common/{folder}` — never via deep paths.
 - Base `DomainException` signature: `super({ code, message, cause?, metadata? })`.
 - Module-specific domain exceptions stay in `modules/{m}/domain/exceptions/`, NOT here.
-- ORM entity classes live under `common/infra/typeorm/entities/{domain}/*`, NOT inside module `domain/`.
-- HTTP / queue / cron are TOP-LEVEL (`src/http`, `src/queue`, `src/cron`) — not in `common/`.
+- Prisma model files live under `common/infra/prisma/models/`, NOT inside module `domain/`.
+- HTTP is TOP-LEVEL (`src/http`) — not in `common/`. Other transport/execution layers (`queue/`, `cron/`, `ws/`) are also top-level, added only when needed.
 
 ## Goal
 
@@ -22,7 +22,7 @@ description: Organizes `src/common/` by architectural layers and keeps shared co
 
 ## Target Shape
 
-```text
+```
 src/
   common/
     exceptions/          # DomainException, DtoFailed
@@ -31,15 +31,31 @@ src/
     validators/          # class-validator helpers (IsNullable)
     decorators/          # cross-cutting method decorators (ValidateDto)
     infra/
-      typeorm/           # TypeormModule, entities/, TransactionRunner, 
-      redis/             # RedisModule, RedisConnector
-      context/           # AuthContext, ClientContext, LogContext, ContextModule (CLS)
+      prisma/            # PrismaModule, PrismaService, PrismaConnector, models/, schema.prisma, migrations/, TransactionRunner, TransactionContext
   http/                  # top-level — controllers, filters, guards, pipes, templates, transforms
-  queue/                 # top-level — BullMQ queue and workers
-  cron/                  # top-level — scheduled tasks
   modules/               # business modules
   app.module.ts
   main.ts
+```
+
+### Optional infra layers (examples)
+
+These follow the same pattern as `infra/prisma/` — each technology gets its own folder with `index.ts` and NestJS module. Add only when the technology is actually present in the project:
+
+```
+  common/
+    infra/
+      redis/             # RedisModule, RedisConnector (optional)
+      context/           # AuthContext, ClientContext, LogContext, ContextModule — CLS-based (optional)
+```
+
+### Optional top-level layers (examples)
+
+Transport / execution slices live directly under `src/`, not under `src/common/`. Add only when needed:
+
+```
+  queue/                 # BullMQ queue and workers (optional)
+  cron/                  # scheduled tasks (optional)
 ```
 
 ## Folder Rules
@@ -53,12 +69,8 @@ src/
 | Pure helper, no I/O (`deepMerge`) | `common/utils/` |
 | Reusable `class-validator` helper (`IsNullable`) | `common/validators/` |
 | Cross-cutting method decorator (`ValidateDto`) | `common/decorators/` |
-| TypeORM module / entities / transaction / repository manager | `common/infra/typeorm/` |
-| Redis module / connector | `common/infra/redis/` |
-| CLS context (auth / client / log) | `common/infra/context/` |
+| Prisma module / service / connector / models / migrations / transaction runner | `common/infra/prisma/` |
 | HTTP controller / filter / guard / pipe | `src/http/` (top-level) |
-| Queue worker / service | `src/queue/` (top-level) |
-| Cron task | `src/cron/` (top-level) |
 | Module-specific domain exception (`ClientNotFound`) | `modules/{m}/domain/exceptions/` — NOT here |
 
 ### `exceptions/`, `types/`, `utils/`, `validators/`, `decorators/`
@@ -76,43 +88,30 @@ src/
 2. Folder name = technology name. Consumers import via `@common/infra/{name}`.
 3. Infrastructure helpers tied to a specific technology live next to it — don't create an orphan shared folder.
 
-#### `infra/typeorm/`
+#### `infra/prisma/`
 
-TypeORM is the ORM used in this project. The folder hosts:
+Prisma is the ORM used in this project. The folder hosts:
 
-- `typeorm.module.ts` — `TypeormModule` (NestJS global module for DB connection).
-- `entities/{domain}/*.ts` — ORM entity classes, grouped by business domain (`auth/`, `client/`, `parser/`, `log/`, `dictionary/`, `amo/`).
+- `prisma.module.ts` — `PrismaModule` (NestJS global module for DB connection).
+- `prisma.service.ts` — `PrismaService` (wraps PrismaClient, accessible via `this.prisma.db`).
+- `prisma.connector.ts` — `PrismaConnector` (manages connection lifecycle: connect/disconnect hooks).
+- `models/*.prisma` — Prisma model files, grouped by domain.
+- `schema.prisma` — root Prisma schema that references model files via `include`.
+- `migrations/` — Prisma migration history.
 - `transaction.runner.ts` — `TransactionRunner.run(async () => ...)` for wrapping logic in a DB transaction.
-- `transaction-context.ts` — `TransactionContext` (CLS-based, tracks the active EntityManager).
-- `repository.manager.ts` — `RepositoryManager` — a façade that exposes typed TypeORM repositories (`repository.client`, `repository.clientAuth`, etc.).
+- `transaction-context.ts` — `TransactionContext` (CLS-based, tracks the active Prisma transaction).
 
-Why entities live in `common/infra/typeorm/entities/` and not inside modules: ORM entities reference each other through relations across module boundaries. Keeping them central avoids circular imports between modules.
+Why Prisma models live in `common/infra/prisma/models/` and not inside modules: Prisma models reference each other through relations across module boundaries. Keeping them central avoids circular imports between modules.
 
-Other ORMs (Prisma, Drizzle, etc.) would follow the same pattern: `common/infra/{orm}/` with the ORM-specific helpers inside. In this project, only TypeORM exists.
-
-#### `infra/redis/`
-
-- `redis.module.ts` — `RedisModule`.
-- `redis.connector.ts` — `RedisConnector`.
-
-#### `infra/context/`
-
-CLS-based request-scoped contexts, backed by `nestjs-cls`. These replace passing cross-cutting data (current client, auth, log id) through method parameters.
-
-- `auth.context.ts` — `AuthContext` — current `ClientAuth`.
-- `client.context.ts` — `ClientContext` — current `Client`.
-- `log.context.ts` — `LogContext` — current log ids (`resumeLogId`, `unloadLogId`).
-- `context.module.ts` — `ContextModule` (global Nest module).
-
-Guidance: inject a context into a repository / gateway / use-case instead of requiring the caller to pass `clientId`, `userId`, or similar values.
+Other ORMs would follow the same pattern: `common/infra/{orm}/` with the ORM-specific helpers inside.
 
 ### Top-level layers — NOT in `common/`
 
 These live directly under `src/`, not under `src/common/`:
 
 - `src/http/` — HTTP transport: controllers, filters, guards, pipes, templates, transforms.
-- `src/queue/` — BullMQ queue (`queue.service.ts`, `queue-manager.ts`, `workers/`).
-- `src/cron/` — scheduled tasks (`cron.module.ts`, `tasks/`).
+- `src/queue/` — BullMQ queue (optional).
+- `src/cron/` — scheduled tasks (optional).
 
 Reason: they are execution/transport slices of the application, not shared primitives. A typical `common/` primitive has no business logic and no runtime responsibility; HTTP / queue / cron do.
 
@@ -129,18 +128,15 @@ Consumers use these paths (always via the barrel, never deep):
 | Pure helpers (`deepMerge`) | `@common/utils` |
 | `ValidateDto` | `@common/decorators` |
 | `IsNullable` | `@common/validators` |
-| TypeORM module / entities / transaction / repo manager | `@common/infra/typeorm` |
-| TypeORM entity classes by domain | `@common/infra/typeorm/entities/{domain}` |
-| Redis | `@common/infra/redis` |
-| CLS contexts (`AuthContext`, `ClientContext`, `LogContext`) | `@common/infra/context` |
+| Prisma module / service / connector / transaction runner | `@common/infra/prisma` |
 
 Good:
 
 ```ts
 import type { New } from '@common/types'
 import { DomainException } from '@common/exceptions'
-import { TransactionRunner } from '@common/infra/typeorm'
-import { AuthContext } from '@common/infra/context'
+import { TransactionRunner } from '@common/infra/prisma'
+import { PrismaService } from '@common/infra/prisma'
 ```
 
 Bad:
@@ -148,7 +144,7 @@ Bad:
 ```ts
 import type { New } from '@common/types/generics'           // deep path — use barrel
 import { DomainException } from '@common/exceptions/domain.exception'
-import { AuthContext } from '@common/infra/context/auth.context'
+import { PrismaService } from '@common/infra/prisma/prisma.service'
 ```
 
 ## DomainException
@@ -176,7 +172,7 @@ Subclassing pattern is defined in the `domain-structure` skill — see `exceptio
 
 1. Placing standalone files in the root of `common/` (`di.tokens.ts`, `utils.ts`, `helpers.ts`) — classify the artifact and put it in the corresponding folder.
 2. Putting HTTP / queue / cron code into `common/infra/` — those are top-level layers.
-3. Putting ORM entity classes inside `modules/{m}/domain/` — they belong to `common/infra/typeorm/entities/`.
+3. Putting Prisma models inside `modules/{m}/domain/` — they belong to `common/infra/prisma/models/`.
 4. Putting module-specific domain exceptions into `common/exceptions/` — only base/cross-cutting errors live there.
 5. Creating empty NestJS modules for a single provider — register the provider directly in the technology's infra module.
 6. Importing from deep paths when a barrel re-exports the symbol.
@@ -186,7 +182,7 @@ Subclassing pattern is defined in the `domain-structure` skill — see `exceptio
 
 - [ ] File is placed in the folder that matches its classification (see table above).
 - [ ] Import path uses `@common/{folder}` barrel, not a deep path.
-- [ ] ORM entity classes are NOT inside `modules/*/domain/`.
+- [ ] Prisma models are NOT inside `modules/*/domain/`.
 - [ ] Module-specific domain exceptions are NOT in `common/exceptions/`.
 - [ ] `common/` root has no orphan standalone files.
 - [ ] HTTP / queue / cron code is NOT in `common/`.

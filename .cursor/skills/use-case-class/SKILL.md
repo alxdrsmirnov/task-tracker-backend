@@ -7,7 +7,9 @@ description: Creates and refactors declarative use case classes with a single pu
 
 ## Cheat Sheet
 
-- File: `{case-name}.ts` (kebab-case). Class: `{CaseName}` — **no `Case` suffix, no `.case.ts` extension**.
+- File: `{case-name}.case.ts` (kebab-case). Extension `.case.ts` is **required**.
+- Class: `{CaseName}` — verb-first in PascalCase (e.g. `SignUp`, `GetMe`). `Case` suffix is allowed but not required.
+- DTO file: `{case-name}.dto.ts` inside `use-cases/dto/`.
 - One public method: `execute()`.
 - `execute()` **must have an explicit return type** (`Promise<T>` or `Promise<void>`). Type inference is forbidden.
 - `execute()` accepts a DTO class (+ `@ValidateDto()`) OR nothing. Raw primitives / enums as parameters are forbidden — always wrap input in a DTO, even for a single field.
@@ -15,7 +17,7 @@ description: Creates and refactors declarative use case classes with a single pu
 - Throw `DomainException` subclasses from private helpers; prefer the `throwXxx(): never` pattern.
 - `DomainException` constructor signature: `super({ code, message, metadata? })`.
 - Exception messages in Russian. Code: `UPPER_SNAKE_CASE`.
-- Use CLS contexts (`AuthContext`, `ClientContext`, `LogContext`) for cross-cutting data — don't pass `clientId` / `userId` through DTOs when they're already in context.
+- CLS contexts (`AuthContext`, `ClientContext`, `LogContext`) are an optional pattern. When present, use them for cross-cutting data — don't pass `clientId` / `userId` through DTOs when they're already in context. When absent, pass necessary IDs through the DTO.
 
 ## Priority
 
@@ -27,10 +29,10 @@ Rules in this skill take precedence over patterns found in older project code. I
 
 ## Naming
 
-- File: kebab-case without suffixes — `authorize-hh.ts`, `create-client.ts`, `list-clients.ts`.
-- Class: PascalCase, verb-first, **no `Case` / `UseCase` suffix** — `AuthorizeHh`, `CreateClient`, `ListClients`.
+- File: kebab-case, **`.case.ts` extension required** — `sign-up.case.ts`, `get-me.case.ts`, `get-user.case.ts`, `get-member.case.ts`.
+- Class: PascalCase, verb-first — `SignUp`, `GetMe`, `GetUser`, `GetMember`. Suffix `Case` (e.g. `SignUpCase`) is allowed if the project uses it.
 - DTO file: `{case-name}.dto.ts` inside `use-cases/dto/`.
-- DTO class: `{CaseName}Dto` — `AuthorizeDto`, `CreateClientDto`.
+- DTO class: `{CaseName}Dto` — `SignUpDto`, `GetMeDto`.
 
 ## Structure
 
@@ -41,26 +43,39 @@ Reading order inside the class:
 3. Private helpers.
 4. Private state (readonly maps, relation configs, etc.) at the bottom if present.
 
-Example with private state:
+Example:
 
 ```ts
 @Injectable()
-export class RunReadyParsers {
-  constructor(private readonly parserRepository: ParserRepository) {}
+export class SignUp {
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly credentialsRepository: UserCredentialsRepository,
+    private readonly passwordHasher: PasswordHasher
+  ) {}
 
-  public async execute(): Promise<void> {
-    const parsers = await this.parserRepository.listEnabled()
-    parsers.filter((p) => this.isReadyToRun(p)).forEach(/* ... */)
+  @ValidateDto()
+  public async execute(dto: SignUpDto): Promise<User> {
+    await this.guardEmailNotTaken(dto.email)
+    const user = await this.createUser(dto)
+    await this.createCredentials(user, dto.password)
+    return user
   }
 
-  private isReadyToRun(parser: Parser): boolean {
-    const intervalSec = this.scheduleIntervals[parser.schedule]
-    return Date.now() / 1000 - parser.lastRun >= intervalSec
+  private async guardEmailNotTaken(email: string): Promise<void> {
+    const existing = await this.userRepository.findByEmail(email)
+    if (existing) {
+      throw new EmailAlreadyExists(email)
+    }
   }
 
-  private readonly scheduleIntervals: Record<ParserSchedule, number> = {
-    EVERY_30_MINUTES: 30 * 60,
-    EVERY_DAY: 24 * 60 * 60
+  private async createUser(dto: SignUpDto): Promise<User> {
+    return this.userRepository.create({ email: dto.email, name: dto.name })
+  }
+
+  private async createCredentials(user: User, password: string): Promise<void> {
+    const hash = await this.passwordHasher.hash(password)
+    await this.credentialsRepository.create({ userId: user.id, passwordHash: hash })
   }
 }
 ```
@@ -84,43 +99,43 @@ Do not create extra use cases just to shorten `execute()`.
 
 ```ts
 import { ValidateDto } from '@common/decorators'
-import { CreateClientDto } from '@modules/client/use-cases/dto'
+import { GetMeDto } from '@modules/auth/use-cases/dto'
 
 @Injectable()
-export class CreateClient {
-  constructor(private readonly clientRepository: ClientRepository) {}
+export class GetMe {
+  constructor(private readonly userRepository: UserRepository) {}
 
   @ValidateDto()
-  public async execute(dto: CreateClientDto): Promise<Client> {}
+  public async execute(dto: GetMeDto): Promise<User> {}
 }
 ```
 
 Single-field DTO — still a class, still `@ValidateDto()`:
 
 ```ts
-// use-cases/dto/get-client-auth.dto.ts
+// use-cases/dto/get-user.dto.ts
 import { IsInt, IsPositive } from 'class-validator'
 
-export class GetClientAuthDto {
+export class GetUserDto {
   @IsInt()
   @IsPositive()
-  clientId: number
+  userId: number
 }
 ```
 
 ```ts
 @Injectable()
-export class GetClientAuth {
-  constructor(private readonly authRepository: AuthRepository) {}
+export class GetUser {
+  constructor(private readonly userRepository: UserRepository) {}
 
   @ValidateDto()
-  public async execute(dto: GetClientAuthDto): Promise<ClientAuth> {
-    const auth = await this.authRepository.findOne(dto.clientId)
-    return auth ?? this.throwAuthNotFound(dto.clientId)
+  public async execute(dto: GetUserDto): Promise<User> {
+    const user = await this.userRepository.findById(dto.userId)
+    return user ?? this.throwUserNotFound(dto.userId)
   }
 
-  private throwAuthNotFound(clientId: number): never {
-    throw new ClientAuthNotFound(clientId)
+  private throwUserNotFound(userId: number): never {
+    throw new UserNotFound(userId)
   }
 }
 ```
@@ -130,7 +145,7 @@ Rules:
 - DTO must be a **class** (not an interface / type alias) — `Reflect.getMetadata` needs a runtime class.
 - DTO fields use `class-validator` decorators (`@IsString()`, `@IsInt()`, `@IsEnum()`, `@MinLength()`, etc.).
 - DTO files live in `use-cases/dto/`, named `{case-name}.dto.ts`.
-- Data from auth context (e.g. `userId`, `clientId`) usually does NOT belong in the DTO — get it from `AuthContext` / `ClientContext` instead (see "CLS Contexts" below).
+- Data from auth context (e.g. `userId`, `clientId`) usually does NOT belong in the DTO — get it from CLS contexts instead (see "CLS Contexts" below). When CLS contexts are not present in the project, pass necessary IDs through the DTO.
 
 What `@ValidateDto()` does internally:
 
@@ -144,7 +159,7 @@ What `@ValidateDto()` does internally:
 
 ```ts
 @Injectable()
-export class RunReadyParsers {
+export class RefreshTokens {
   public async execute(): Promise<void> {}
 }
 ```
@@ -158,16 +173,16 @@ Use for scheduled tasks / internal triggers with no caller input.
 Good:
 
 ```ts
-public async execute(dto: RegisterDto): Promise<UserTokens> {}
-public async execute(dto: GetClientDto): Promise<Client | null> {}
+public async execute(dto: SignUpDto): Promise<User> {}
+public async execute(dto: GetUserDto): Promise<User | null> {}
 public async execute(): Promise<void> {}
 ```
 
 Bad:
 
 ```ts
-public async execute(dto: RegisterDto) {}           // inferred — NOT allowed
-public async execute() {}                           // inferred — NOT allowed
+public async execute(dto: SignUpDto) {}           // inferred — NOT allowed
+public async execute() {}                          // inferred — NOT allowed
 ```
 
 Why: the contract of the use case is visible immediately, consumer types don't drift when internals change, and IDE autocomplete doesn't depend on checking the full method body.
@@ -177,21 +192,21 @@ Why: the contract of the use case is visible immediately, consumer types don't d
 **Default: inject concrete classes directly.** Repositories, gateways, and tools in this project are concrete `@Injectable()` classes (see `domain-structure` skill), so there is no interface to hide behind a token.
 
 ```ts
-import { AuthRepository } from '@modules/auth/domain/repositories/auth.repository'
-import { HhAuthGateway } from '@modules/auth/domain/gateways/hh-auth.gateway'
-import { AuthContext } from '@common/infra/context'
+import { UserRepository } from '@modules/user/domain/repositories/user.repository'
+import { UserCredentialsRepository } from '@modules/auth/domain/repositories/user-credentials.repository'
+import { PasswordHasher } from '@modules/auth/domain/tools/password-hasher'
 
 @Injectable()
-export class AuthorizeHh {
+export class SignUp {
   constructor(
-    private readonly authContext: AuthContext,
-    private readonly hhAuthGateway: HhAuthGateway,
-    private readonly authRepository: AuthRepository
+    private readonly userRepository: UserRepository,
+    private readonly credentialsRepository: UserCredentialsRepository,
+    private readonly passwordHasher: PasswordHasher
   ) {}
 }
 ```
 
-Deep import paths to domain classes (`@modules/auth/domain/repositories/auth.repository`) are expected. Neighboring domain modules are pulled via `{module}.domain.module.ts` in the Nest module's `imports`.
+Deep import paths to domain classes (`@modules/auth/domain/repositories/user-credentials.repository`) are expected. Neighboring domain modules are pulled via `{module}.domain.module.ts` in the Nest module's `imports`.
 
 ### Exception: polymorphic contracts
 
@@ -225,45 +240,45 @@ If you find yourself introducing a token for a single-implementation contract, d
 
 Every private helper that provides data for the next business step must return `T` or throw. Never return `null` / `undefined` / `false` just to let `execute()` silently `return`.
 
-Same helper (`getClientAuth`), two valid implementations:
+Same helper (`getUser`), two valid implementations:
 
 ### Pattern A — throw inside the loader
 
 ```ts
-private async getClientAuth(clientId: number): Promise<ClientAuth> {
-  const auth = await this.authRepository.findOne(clientId)
-  if (!auth) {
-    throw new ClientAuthNotFound(clientId)
+private async getUser(userId: number): Promise<User> {
+  const user = await this.userRepository.findById(userId)
+  if (!user) {
+    throw new UserNotFound(userId)
   }
-  return auth
+  return user
 }
 ```
 
 ### Pattern B — `throwXxx(): never` helper (preferred in this project)
 
 ```ts
-private async getClientAuth(clientId: number): Promise<ClientAuth> {
-  const auth = await this.authRepository.findOne(clientId)
-  return auth ?? this.throwClientAuthNotFound(clientId)
+private async getUser(userId: number): Promise<User> {
+  const user = await this.userRepository.findById(userId)
+  return user ?? this.throwUserNotFound(userId)
 }
 
-private throwClientAuthNotFound(clientId: number): never {
-  throw new ClientAuthNotFound(clientId)
+private throwUserNotFound(userId: number): never {
+  throw new UserNotFound(userId)
 }
 ```
 
-Why pattern B is useful: the loader stays a one-liner (`return x ?? throwXxx(...)`), the throw logic is reusable, and `: never` lets TS narrow the return type to `ClientAuth`.
+Why pattern B is useful: the loader stays a one-liner (`return x ?? throwXxx(...)`), the throw logic is reusable, and `: never` lets TS narrow the return type to `User`.
 
 ### Forbidden — silent returns
 
 ```ts
 @ValidateDto()
-public async execute(dto: SyncRelationDto): Promise<void> {
-  const comment = this.getRelevantComment(dto)
-  if (!comment) return                    // FORBIDDEN
+public async execute(dto: GetMemberDto): Promise<void> {
+  const member = this.getMember(dto)
+  if (!member) return                    // FORBIDDEN
 
-  const ids = this.extractLinkedIds(dto)
-  if (!ids) return                        // FORBIDDEN
+  const workspace = this.getWorkspace(dto)
+  if (!workspace) return                 // FORBIDDEN
 }
 ```
 
@@ -290,15 +305,15 @@ A use case throws only subclasses of `DomainException` from `@common/exceptions`
 
 See `domain-structure` skill → `### exceptions/` for the full signature, naming, and examples.
 
-## CLS Contexts — cross-cutting data
+## CLS Contexts — cross-cutting data (optional pattern)
 
-The project uses CLS-based contexts from `@common/infra/context` to pass current user / client / log data across layers without threading it through every method.
+The project may use CLS-based contexts from `@common/infra/context` to pass current user / client / log data across layers without threading it through every method. This is an **optional** pattern — not every project has these contexts.
 
-Available contexts:
+Available contexts (when present):
 
-- `AuthContext` — current `ClientAuth`.
-- `ClientContext` — current `Client`.
-- `LogContext` — current log identifiers (`resumeLogId`, `unloadLogId`).
+- `AuthContext` — current auth data.
+- `ClientContext` — current client.
+- `LogContext` — current log identifiers.
 
 Name the injected field with the full context name — `authContext`, `clientContext`, `logContext`. Do not abbreviate to `authCtx` / `clientCtx` / `logCtx`.
 
@@ -306,70 +321,40 @@ Name the injected field with the full context name — `authContext`, `clientCon
 
 | Data | Source |
 | --- | --- |
-| Current client / auth / log ids — set once per request | Context |
+| Current client / auth / log ids — set once per request | Context (when present) |
 | Operation-specific input (command fields, search filters, form data) | DTO |
 
-Example — using `ClientContext` instead of passing `clientId` in the DTO:
-
-```ts
-@Injectable()
-export class UpdateAuthCredentials {
-  constructor(
-    private readonly clientContext: ClientContext,
-    private readonly authRepository: AuthRepository
-  ) {}
-
-  private get client() {
-    return this.clientContext.client
-  }
-
-  @ValidateDto()
-  public async execute(dto: UpdateAuthCredentialsDto): Promise<ClientAuth> {
-    const auth = await this.getAuth()
-    /* ... mutate auth using dto ... */
-    return this.authRepository.update(auth)
-  }
-
-  private async getAuth(): Promise<ClientAuth> {
-    const auth = await this.authRepository.findOne(this.client.id)
-    return auth ?? this.throwClientAuthNotFound(this.client.id)
-  }
-
-  private throwClientAuthNotFound(clientId: number): never {
-    throw new ClientAuthNotFound(clientId)
-  }
-}
-```
+When CLS contexts are **not** present in the project, pass the necessary IDs through the DTO instead.
 
 A `private get client()` shortcut is a valid pattern when the context value is used in several methods.
 
 ## Transactions
 
-Wrap multi-write operations with `TransactionRunner.run(...)` from `@common/infra/typeorm`. Everything executed inside the callback runs in a single TypeORM transaction thanks to the CLS-based `TransactionContext`.
+Wrap multi-write operations with `TransactionRunner.run(...)` from `@common/infra/prisma`. Everything executed inside the callback runs in a single Prisma transaction thanks to the CLS-based `TransactionContext`.
 
 ```ts
-import { TransactionRunner } from '@common/infra/typeorm'
+import { TransactionRunner } from '@common/infra/prisma'
 
 @Injectable()
-export class CreateClient {
+export class SignUp {
   constructor(
     private readonly transaction: TransactionRunner,
-    private readonly clientRepository: ClientRepository,
-    private readonly authRepository: AuthRepository
+    private readonly userRepository: UserRepository,
+    private readonly credentialsRepository: UserCredentialsRepository
   ) {}
 
   @ValidateDto()
-  public async execute(dto: CreateClientDto): Promise<Client> {
+  public async execute(dto: SignUpDto): Promise<User> {
     return this.transaction.run(async () => {
-      const client = await this.clientRepository.create({
-        name: dto.name,
-        isActive: dto.isActive
+      const user = await this.userRepository.create({
+        email: dto.email,
+        name: dto.name
       })
-      await this.authRepository.create({
-        clientId: client.id,
-        credentials: dto.credentials
+      await this.credentialsRepository.create({
+        userId: user.id,
+        passwordHash: dto.password
       })
-      return client
+      return user
     })
   }
 }
@@ -378,7 +363,7 @@ export class CreateClient {
 Rules:
 
 - Everything inside the `run` callback runs in the same DB transaction. Keep only DB writes / reads there.
-- Return from the callback only the data `execute()` actually needs. If a helper entity is created only as a side-effect (like `auth` tied to `client`), don't return it just to acknowledge its creation.
+- Return from the callback only the data `execute()` actually needs. If a helper entity is created only as a side-effect (like credentials tied to user), don't return it just to acknowledge its creation.
 - Side effects that must be durable only after commit (event emit, external API call, file write) go **after** `run` returns, not inside the callback.
 
 ## Method Naming
@@ -413,18 +398,18 @@ A use case is registered in the module's NestJS module at `src/modules/{m}/{m}.m
 
 ```ts
 import { Module } from '@nestjs/common'
-import { ClientDomainModule } from './domain/client.domain.module'
-import { AuthDomainModule } from '@modules/auth/domain/auth.domain.module'
-import { CreateClient, ListClients, DeleteClient } from './use-cases'
+import { AuthDomainModule } from './domain/auth.domain.module'
+import { UserDomainModule } from '@modules/user/domain/user.domain.module'
+import { SignUp, SignIn } from './use-cases'
 
-const useCases = [CreateClient, ListClients, DeleteClient]
+const useCases = [SignUp, SignIn]
 
 @Module({
-  imports: [ClientDomainModule, AuthDomainModule],
+  imports: [AuthDomainModule, UserDomainModule],
   providers: [...useCases],
-  exports: [...useCases, ClientDomainModule]
+  exports: [...useCases, AuthDomainModule]
 })
-export class ClientModule {}
+export class AuthModule {}
 ```
 
 Use cases are also re-exported from `src/modules/{m}/use-cases/index.ts` for convenient imports from the module's own wiring and from sibling modules that need to inject them.
@@ -434,27 +419,27 @@ Use cases are also re-exported from `src/modules/{m}/use-cases/index.ts` for con
 When editing an existing use case:
 
 1. Keep observable behavior unless the user asked for changes.
-2. Apply every rule from this skill. The most common drifts to fix: `Case` suffix, missing return type, primitive `execute()` parameter, `if (!x) return` chains, string-based `DomainException` constructor.
+2. Apply every rule from this skill. The most common drifts to fix: missing `.case.ts` extension, missing return type, primitive `execute()` parameter, `if (!x) return` chains, string-based `DomainException` constructor.
 
 ## Anti-Patterns
 
-1. `Case` / `UseCase` suffix in class name or `.case.ts` file extension.
+1. Missing `.case.ts` extension on the use case file.
 2. Missing return type on `execute()`.
 3. Passing a raw primitive / enum into `execute()` instead of wrapping it in a DTO class.
 4. `if (!x) return` chains to silently stop `execute()`.
 5. Throwing `HttpException`, raw `Error`, or a `new Error('message')` from a use case.
-6. Passing `clientId` / `userId` through DTOs when the value is already in a CLS context.
+6. Passing `clientId` / `userId` through DTOs when the value is already in a CLS context (applicable only when CLS contexts are present).
 7. Using `any` anywhere in the use case.
 8. Multiple public methods on a use case class.
 9. Calling another module's use case directly — use the target module's public domain API instead (repositories / gateways / events), OR import the use case class through the target module's exports. Never reach into another module's `use-cases/*` file directly.
 
 ## Checklist
 
-- [ ] File `{case-name}.ts`, class `{CaseName}` (no `Case` suffix, no `.case.ts`).
+- [ ] File `{case-name}.case.ts`, class `{CaseName}` (`.case.ts` extension required).
 - [ ] `execute()` has an explicit return type.
 - [ ] `execute()` accepts a DTO class (+ `@ValidateDto()`) or nothing — never a raw primitive / enum.
 - [ ] DI uses direct class injection.
 - [ ] No `if (!x) return` chains — throw from a private helper instead.
 - [ ] Only `DomainException` subclasses are thrown; exception messages in Russian, `code` in `UPPER_SNAKE_CASE`.
-- [ ] Cross-cutting data (current client / auth / log ids) comes from CLS contexts, not the DTO.
+- [ ] Cross-cutting data (current client / auth / log ids) comes from CLS contexts (when present), not the DTO.
 - [ ] No `any`; no multiple public methods.

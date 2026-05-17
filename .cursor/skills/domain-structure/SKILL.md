@@ -15,7 +15,7 @@ description: Organizes `src/modules/{moduleName}/domain/` and keeps domain bound
 - Exception file names: no `Exception` suffix — `client-not-found.ts`, class `ClientNotFound`.
 - Exception messages: Russian. Code: `UPPER_SNAKE_CASE`.
 - `create` / `update` method signatures: prefer `New<Model>` / `Updatable<Model>` from `@common/types`.
-- Models are `interface` (TS), NOT ORM entity classes. ORM entities live in `common/infra/typeorm/entities/`.
+- Models are `interface` (TS), NOT Prisma model classes. Prisma models live in `common/infra/prisma/models/`.
 
 ## Goal
 
@@ -49,7 +49,7 @@ domain/
 
 Minimum viable domain:
 
-```text
+```
 domain/
   index.ts
   {module}.domain.module.ts
@@ -98,11 +98,11 @@ Rules:
 | Domain error | `exceptions/` | `client-not-found.ts` → `class ClientNotFound` |
 | Default model instance | `models/defaults/` | `amo-auth.default.ts` → `export const amoAuthDefault` |
 | Module-level const array / enum map | `constants.ts` at domain root | `TextTypes`, `NumericTypes` |
-| Business scenario (use case) | `src/modules/{m}/use-cases/` | `create-client.ts` |
+| Business scenario (use case) | `src/modules/{m}/use-cases/` | `create-client.case.ts` |
 | HTTP controller / filter / guard | `src/http/` | — |
 | BullMQ worker | `src/queue/workers/` | — |
 | Cron task | `src/cron/tasks/` | — |
-| ORM entity class | `src/common/infra/typeorm/entities/{domain}/` | `client.ts` |
+| Prisma model | `src/common/infra/prisma/models/` | `user.prisma` |
 
 ### `models/`
 
@@ -111,7 +111,7 @@ Store business entities as TypeScript `interface`.
 Rules:
 
 1. One entity per file. Filename: `{entity}.ts` in kebab-case. Interface name: `PascalCase` without `I` prefix.
-2. Models do NOT extend ORM entity classes. ORM mapping lives in `common/infra/typeorm/entities/`.
+2. Models do NOT extend Prisma model types. Prisma mapping lives in `common/infra/prisma/models/`.
 3. A model may reference local supporting types from `types/`.
 4. Do not place helper types, DTOs, transport payloads, search params, or repository args here.
 
@@ -163,51 +163,60 @@ Bad: `client.types.ts` containing the business entity itself.
 
 ### `repositories/` — concrete `@Injectable()` classes
 
-The persistence contract in this project is a concrete class (not an `interface`). It injects `RepositoryManager` from `@common/infra/typeorm` and exposes domain-oriented methods. ORM rows are converted to domain models via a private `toDomain` mapper — never returned raw.
+The persistence contract in this project is a concrete class (not an `interface`). It injects `PrismaService` from `@common/infra/prisma` and exposes domain-oriented methods. Prisma rows are converted to domain models via a private `toDomain` mapper — never returned raw.
 
 ```ts
 import { Injectable } from '@nestjs/common'
-import { RepositoryManager } from '@common/infra/typeorm'
-import * as Orm from '@common/infra/typeorm/entities/auth'
+import { PrismaService } from '@common/infra/prisma'
 import type { New } from '@common/types'
-import type { ClientAuth } from '../models/client-auth'
+import type { User } from '../models/user'
 
 @Injectable()
-export class AuthRepository {
-  constructor(private readonly repository: RepositoryManager) {}
+export class UserRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-  public async findOne(clientId: number): Promise<ClientAuth | null> {
-    const auth = await this.repository.clientAuth.findOneBy({ clientId })
-    return auth ? this.toDomain(auth) : null
+  public async findById(id: number): Promise<User | null> {
+    const user = await this.prisma.db.user.findUnique({ where: { id } })
+    return user ? this.toDomain(user) : null
   }
 
-  public async create(data: New<ClientAuth>): Promise<ClientAuth> {}
+  public async create(data: New<User>): Promise<User> {
+    const user = await this.prisma.db.user.create({ data })
+    return this.toDomain(user)
+  }
 
-  public async update(auth: ClientAuth): Promise<ClientAuth> {}
+  public async update(user: User): Promise<User> {
+    const { id, ...data } = user
+    const updated = await this.prisma.db.user.update({ where: { id }, data })
+    return this.toDomain(updated)
+  }
 
-  public async delete(clientId: number): Promise<void> {}
+  public async delete(id: number): Promise<void> {
+    await this.prisma.db.user.delete({ where: { id } })
+  }
 
-  private toDomain(auth: Orm.ClientAuth): ClientAuth {
-    return auth
+  private toDomain(user: User): User {
+    return user
   }
 }
 ```
 
 Rules:
 
-1. File: `{entity}.repository.ts`. Class: `{Entity}Repository`. No `Impl` / `Typeorm` suffix.
-2. Accept and return `models` / local `types` / primitives / shared types from `@common/types`. Never expose ORM types.
-3. Map ORM → domain via a private `toDomain(row)` method. Even when the shapes coincide today, keep the mapper — it's the anchor for future divergence.
-4. Method naming:
+1. File: `{entity}.repository.ts`. Class: `{Entity}Repository`. No `Impl` / `Prisma` suffix.
+2. Accept and return `models` / local `types` / primitives / shared types from `@common/types`. Never expose Prisma types.
+3. Map Prisma → domain via a private `toDomain(row)` method. Even when the shapes coincide today, keep the mapper — it's the anchor for future divergence.
+4. Access Prisma via `this.prisma.db` (not `this.prisma` directly).
+5. Method naming:
    - `find*` / `get*` → single entity, may return `T | null`.
    - `list*` → collection with a business scope (`listEnabled`, `listByClientId`). Returns `T[]`, never `null`.
    - `search*` → filtered query with params. Returns `T[]` or `PaginatedResult<T>`.
    - `create` / `update` / `delete` — standard CRUD.
-5. Methods separated by one blank line; private helpers (`toDomain`, `relations`) at the bottom.
+6. Methods separated by one blank line; private helpers (`toDomain`, `relations`) at the bottom.
 
 ### `gateways/` — concrete `@Injectable()` classes
 
-External API integrations. The constructor injects an HTTP connector (a small `@Injectable()` class that encapsulates `baseURL`, headers, retry, rate-limiting — analogous to `RepositoryManager` in the persistence layer) and, when the API is per-client, an `AuthContext` from `@common/infra/context`.
+External API integrations. The constructor injects an HTTP connector (a small `@Injectable()` class that encapsulates `baseURL`, headers, retry, rate-limiting — analogous to `PrismaService` in the persistence layer) and, when the API is per-client, an `AuthContext` from `@common/infra/context`.
 
 ```ts
 import { Injectable } from '@nestjs/common'
@@ -361,7 +370,7 @@ Inside `src/modules/{moduleName}/domain/**`, these imports are allowed:
 2. `@common/*` (types, exceptions, utils, decorators, validators, infra).
 3. External libraries — grouped by role (repository / gateway / tool classes are concrete implementations, so framework imports are expected):
    - Nest core: `@nestjs/common`, `nestjs-cls`
-   - ORM: `typeorm`
+   - ORM: `@prisma/client`
    - HTTP: `axios`, `axios-retry`
    - Rate-limiting: `bottleneck`
    - Crypto / hashing: `bcrypt`, `jsonwebtoken`
@@ -382,7 +391,7 @@ Use barrel paths (`@common/types`) instead of deep ones (`@common/types/generics
 2. Creating a `gateway` for database access — DB = `repository`.
 3. Declaring an `interface` for a contract that has only one implementation — use a class.
 4. Using `any` / `unknown` / `Record<string, unknown>` as a lazy escape hatch in method signatures.
-5. Placing ORM entity classes inside `domain/models/` — they belong to `common/infra/typeorm/entities/`.
+5. Placing Prisma models inside `domain/models/` — they belong to `common/infra/prisma/models/`.
 6. Exposing `AxiosResponse`, SDK types, or raw DB rows from a repository / gateway method.
 7. Re-exporting `{module}.domain.module.ts` from `domain/index.ts`.
 8. Creating duplicate concepts for the same business meaning (`Client`, `ClientModel`, `ClientData`, `ClientPayload`). Pick one canonical name.
