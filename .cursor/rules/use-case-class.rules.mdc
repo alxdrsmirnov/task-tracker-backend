@@ -1,6 +1,6 @@
 ---
 description: Structure and contract of use case classes — .case.ts extension, execute(), DTO + @ValidateDto(), throw patterns, transactions.
-globs: src/modules/*/use-cases/**
+globs: src/core/*/use-cases/**
 ---
 # Use Case Class
 

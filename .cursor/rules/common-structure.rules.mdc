@@ -21,7 +21,7 @@ src/
                        # models/, schema.prisma, migrations/,
                        # TransactionRunner, TransactionContext
   http/                  # top-level — controllers, filters, guards, pipes
-  modules/               # business modules
+  core/                  # business modules
 ```
 
 ## Classification Table
@@ -35,7 +35,7 @@ src/
 | Cross-cutting method decorator | `common/decorators/` |
 | Prisma infra (module, models, migrations, txn) | `common/infra/prisma/` |
 | HTTP controller / filter / guard / pipe | `src/http/` (TOP-LEVEL) |
-| Module domain exceptions | `modules/{m}/domain/exceptions/` |
+| Module domain exceptions | `core/{m}/domain/exceptions/` |
 
 ## Rules
 
@@ -86,7 +86,7 @@ export abstract class DomainException extends Error {
 
 - Standalone files in `common/` root → classify and put in subfolder
 - HTTP code in `common/infra/` → top-level
-- Prisma models in `modules/{m}/domain/` → `common/infra/prisma/models/`
+- Prisma models in `core/{m}/domain/` → `common/infra/prisma/models/`
 - Module exceptions in `common/exceptions/` → module's `domain/exceptions/`
 - Empty NestJS module for a single provider → register directly in infra module
 - Deep import path → use barrel
@@ -96,7 +96,7 @@ export abstract class DomainException extends Error {
 
 - [ ] File in correct folder (see table)
 - [ ] Import via `@common/{folder}` barrel, not deep path
-- [ ] Prisma models NOT in `modules/*/domain/`
+- [ ] Prisma models NOT in `core/*/domain/`
 - [ ] Module exceptions NOT in `common/exceptions/`
 - [ ] No orphan files in `common/` root
 - [ ] HTTP code NOT in `common/`

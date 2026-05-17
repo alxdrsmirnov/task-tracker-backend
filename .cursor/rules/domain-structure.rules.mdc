@@ -1,6 +1,6 @@
 ---
-description: Structure of `src/modules/{module}/domain/` — models, repositories, exceptions, domain module wiring, public API.
-globs: src/modules/*/domain/**
+description: Structure of `src/core/{module}/domain/` — models, repositories, exceptions, domain module wiring, public API.
+globs: src/core/*/domain/**
 ---
 # Module Domain Structure
 
@@ -31,7 +31,7 @@ Minimum: `index.ts` + `{module}.domain.module.ts` + `models/{entity}.ts`.
 | External API class | `gateways/` | `amo-auth.gateway.ts` |
 | In-process capability | `tools/` | `password-hasher.ts` |
 | Domain error | `exceptions/` | `user-not-found.ts` → `class UserNotFound` |
-| Use case | `src/modules/{m}/use-cases/` | `sign-up.case.ts` |
+| Use case | `src/core/{m}/use-cases/` | `sign-up.case.ts` |
 | HTTP controller / filter | `src/http/` | — |
 | Prisma model | `src/common/infra/prisma/models/` | `user.prisma` |
 
