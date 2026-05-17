@@ -14,7 +14,7 @@ description: Organizes `src/common/` by architectural layers and keeps shared co
 - Base `DomainException` signature: `super({ code, message, cause?, metadata? })`.
 - Module-specific domain exceptions stay in `modules/{m}/domain/exceptions/`, NOT here.
 - Prisma model files live under `common/infra/prisma/models/`, NOT inside module `domain/`.
-- HTTP is TOP-LEVEL (`src/http`) — not in `common/`. Other transport/execution layers (`queue/`, `cron/`, `ws/`) are also top-level, added only when needed.
+- HTTP is TOP-LEVEL (`src/http`) — not in `common/`.
 
 ## Goal
 
@@ -47,15 +47,6 @@ These follow the same pattern as `infra/prisma/` — each technology gets its ow
     infra/
       redis/             # RedisModule, RedisConnector (optional)
       context/           # AuthContext, ClientContext, LogContext, ContextModule — CLS-based (optional)
-```
-
-### Optional top-level layers (examples)
-
-Transport / execution slices live directly under `src/`, not under `src/common/`. Add only when needed:
-
-```text
-  queue/                 # BullMQ queue and workers (optional)
-  cron/                  # scheduled tasks (optional)
 ```
 
 ## Folder Rules
@@ -110,10 +101,8 @@ Other ORMs would follow the same pattern: `common/infra/{orm}/` with the ORM-spe
 These live directly under `src/`, not under `src/common/`:
 
 - `src/http/` — HTTP transport: controllers, filters, guards, pipes, templates, transforms.
-- `src/queue/` — BullMQ queue (optional).
-- `src/cron/` — scheduled tasks (optional).
 
-Reason: they are execution/transport slices of the application, not shared primitives. A typical `common/` primitive has no business logic and no runtime responsibility; HTTP / queue / cron do.
+Reason: HTTP is an execution/transport slice of the application, not a shared primitive. A typical `common/` primitive has no business logic and no runtime responsibility; HTTP does.
 
 When the skill says "shared infra lives in `common/infra/`", it means **technologies consumed by many modules** (DB, cache, CLS). Transport and execution layers don't fit there.
 
@@ -171,7 +160,7 @@ Subclassing pattern is defined in the `domain-structure` skill — see `exceptio
 ## Anti-Patterns
 
 1. Placing standalone files in the root of `common/` (`di.tokens.ts`, `utils.ts`, `helpers.ts`) — classify the artifact and put it in the corresponding folder.
-2. Putting HTTP / queue / cron code into `common/infra/` — those are top-level layers.
+2. Putting HTTP code into `common/infra/` — HTTP is a top-level layer.
 3. Putting Prisma models inside `modules/{m}/domain/` — they belong to `common/infra/prisma/models/`.
 4. Putting module-specific domain exceptions into `common/exceptions/` — only base/cross-cutting errors live there.
 5. Creating empty NestJS modules for a single provider — register the provider directly in the technology's infra module.
@@ -185,5 +174,5 @@ Subclassing pattern is defined in the `domain-structure` skill — see `exceptio
 - [ ] Prisma models are NOT inside `modules/*/domain/`.
 - [ ] Module-specific domain exceptions are NOT in `common/exceptions/`.
 - [ ] `common/` root has no orphan standalone files.
-- [ ] HTTP / queue / cron code is NOT in `common/`.
+- [ ] HTTP code is NOT in `common/`.
 - [ ] Each new `common/` subfolder has an `index.ts` barrel.
