@@ -1,110 +1,135 @@
 # Run Tasks Autonomously
 
-Автономно выполнить очередь задач из Task Master по схеме **оркестратор → worker → verifier**, с параллельными волнами, независимой верификацией и детектором файловых коллизий.
+Autonomously execute a Task Master queue using the **orchestrator -> worker -> verifier** pattern, with parallel waves, independent verification, and file-collision detection.
 
 Arguments: $ARGUMENTS
 
-## РОЛИ
+## Roles
 
-Три актора:
+There are three actors:
 
-1. **Оркестратор** (ты) — координирует очередь, ведёт статусы Task Master через MCP, делегирует задачи, парсит JSON-отчёты сабагентов, принимает решения. Сам код НЕ пишет.
-2. **Worker** — выполняет одну задачу: читает контекст, пишет код, прогоняет линт. Контракт: `.cursor/agents/worker.md`. Возвращает JSON.
-3. **Verifier** — независимо проверяет работу worker'а. Только чтение, тесты, линт. Контракт: `.cursor/agents/verifier.md`. Возвращает JSON.
+1. **Orchestrator** (you) - coordinates the queue, manages Task Master statuses through MCP, delegates tasks, parses subagent JSON reports, and makes decisions. The orchestrator does NOT write code.
+2. **Worker** - completes one task: reads context, writes code, and runs lint. Contract: `.cursor/agents/worker.md`. Returns JSON.
+3. **Verifier** - independently verifies the worker's output. Read-only: code reading, tests, and lint only. Contract: `.cursor/agents/verifier.md`. Returns JSON.
 
-## ВХОДНЫЕ ДАННЫЕ
+## Inputs
 
-`$ARGUMENTS` = `<очередь> [флаги]`
+`$ARGUMENTS` = `<queue> [flags]`
 
-### Очередь
+### Queue
 
-- пусто / `all` / `pending` — все pending-задачи (фильтр по зависимостям, сортировка по id).
-- `next` — одна задача через `next_task`.
-- `N` — одна задача (например `7`).
-- `N-M` — диапазон.
-- `a,b,c` или `a-b,c,d-e` — комбинация.
-- ID подзадач (`N.M`) допустимы только если явно перечислены.
+- empty / `all` / `pending` - all pending top-level tasks, filtered by dependencies and sorted by id. Subtasks are NOT enqueued separately; the worker handles them through the `Subtasks` checklist of the parent task.
+- `next` - one task from `next_task`.
+- `N` - one task, for example `7`.
+- `N-M` - range.
+- `a,b,c` or `a-b,c,d-e` - combination.
+- Subtask IDs (`N.M`) are allowed only when explicitly listed.
 
-### Флаги (через пробел, в любом порядке)
+### Flags (space-separated, any order)
 
-- `parallel=K` — до K worker'ов параллельно (по умолчанию `3`, разумный максимум `5`).
-- `verify` — каждую `completed` задачу прогонять через verifier'а. **По умолчанию ВКЛЮЧЕНО.**
-- `no-verify` — отключить верификацию (только если пользователь явно так попросил).
-- `dry-run` — построить план волн, показать пользователю, не запускать worker'ов.
-- `priority=high|medium|low` — фильтр по приоритету.
+- `parallel=K` - up to K subagents in parallel. The same limit applies to BOTH workers and verifiers. Default: `3`; reasonable maximum: `5`.
+- `verify` - run every `completed` task through the verifier. **Enabled by default.**
+- `no-verify` - disable verification, only when the user explicitly asks for it.
+- `dry-run` - build the wave plan and show it to the user without launching workers.
+- `priority=high|medium|low` - filter by priority.
 
-Если разобрать `$ARGUMENTS` не удалось — задай ОДИН уточняющий вопрос и стой.
+If `$ARGUMENTS` cannot be parsed, ask ONE clarifying question and stop.
 
-## КОНТЕКСТ ПРОЕКТА
+## Project Context
 
-- `projectRoot` = корень текущего воркспейса (абсолютный путь).
-- `tag` = поле `currentTag` из `.taskmaster/state.json`. Если файла или поля нет — fallback `master` + предупреждение в логе.
-- Все вызовы MCP Task Master передавай `projectRoot` и `tag`.
+- `projectRoot` = current workspace root as an absolute path.
+- `tag` = `currentTag` from `.taskmaster/state.json`. If the file or field is missing, fall back to `master` and log a warning.
+- Pass `projectRoot` and `tag` to every Task Master MCP call.
 
-## ТИПЫ САБАГЕНТОВ
+## Subagent Types
 
-Worker и verifier зарегистрированы как кастомные `subagent_type` через frontmatter в `.cursor/agents/worker.md` и `.cursor/agents/verifier.md`. Содержимое этих файлов автоматически становится system prompt'ом сабагента, а `model` и `readonly` берутся из frontmatter. Вызывай их НАПРЯМУЮ:
+Worker and verifier are registered as custom `subagent_type`s through frontmatter in `.cursor/agents/worker.md` and `.cursor/agents/verifier.md`. The content of those files becomes the subagent system prompt automatically. Invoke them DIRECTLY:
 
-- worker — `subagent_type: "worker"`.
-- verifier — `subagent_type: "verifier"`.
+- worker - `subagent_type: "worker"`.
+- verifier - `subagent_type: "verifier"`.
 
-НЕ передавай `model` и `readonly` руками — они уже зашиты во frontmatter `.cursor/agents/*.md`. Дублирование = расхождение с source of truth.
+Do NOT duplicate anything already declared in the subagent's frontmatter or system prompt: no `model`, no `readonly`, no contract path (`.cursor/agents/...`) in the `prompt`. Duplication creates drift from the source of truth and wastes the model's attention.
 
-НЕ упоминай в `prompt` путь к контракту (`.cursor/agents/...`) — контракт уже в system prompt сабагента, повторение лишнее и сбивает фокус.
+`run-tasks` always delegates code work to `worker` and verification to `verifier`. Do NOT route tasks through `explore` or `shell`: those subagents do not return the worker JSON contract and would break Step C parsing.
 
-Для исследовательских read-only задач допустим `subagent_type: "explore"`, для чисто инфраструктурных — `subagent_type: "shell"`.
+## Language Policy
 
-## ПОДГОТОВКА (один раз)
+- Instruction language: English.
+- Task/user-facing language: Russian.
+- Machine-readable JSON schema: English keys/enums.
+- Human-readable JSON values: Russian.
+- Prompts sent to worker and verifier MUST provide task context and operational instructions in Russian.
+- All user-facing orchestrator messages MUST be in Russian: launch plan, wave progress, blockers, collisions, awaiting-input questions, final summary, and diagnostics.
 
-1. Прочитай `.taskmaster/state.json` → `currentTag` (fallback `master`).
-2. Распарси `$ARGUMENTS`:
-   - выдели очередь и флаги;
-   - `verify` ВКЛЮЧЁН по умолчанию, кроме случая `no-verify`.
-3. `get_tasks` (с `withSubtasks: true`) — полный список.
-4. Сформируй очередь ID:
-   - применить фильтры (priority, исключить `done` / `cancelled`);
-   - топологически отсортировать по зависимостям внутри очереди;
-   - построить **волны**: волна = задачи, у которых ВСЕ внутренние зависимости уже завершены в предыдущих волнах.
-5. **Sanity-check**:
-   - очередь пуста после фильтрации → сообщи «нет готовых задач», выйди;
-   - все указанные ID не существуют → стоп, спроси пользователя;
-   - `tag` отсутствует → fallback `master` и предупреждение.
-6. Если `dry-run`:
-   - выведи план: волны с ID, размер каждой волны, флаги, оценка параллельности;
-   - НЕ запускай worker'ов;
-   - выйди.
-7. Минимальный `TodoWrite` с ОДНОЙ строкой: `Running queue: N tasks, M waves, parallel=K, verify=on/off`. Полный список задач не дублируй — он есть в Task Master.
-8. Сообщи пользователю план и сразу перейди к циклу. НЕ жди подтверждения.
+## Preparation (once)
 
-## ГЛАВНЫЙ ЦИКЛ (по волнам)
+1. Read `.taskmaster/state.json` -> `currentTag` (fallback: `master`).
+2. Parse `$ARGUMENTS`:
+   - extract queue and flags;
+   - `verify` is ON by default unless `no-verify` is present.
+3. Call `get_tasks` with `withSubtasks: true` to get the full list.
+4. Build the task ID queue:
+   - apply filters (priority, exclude `done` / `cancelled`);
+   - keep only top-level tasks unless subtask IDs are listed explicitly in `$ARGUMENTS`;
+   - topologically sort by dependencies inside the queue;
+   - build **waves**: a wave contains tasks whose internal dependencies are ALL completed in previous waves.
+5. **Cache rule frontmatter (once)**: read frontmatter (`alwaysApply`, `globs`, `description`) of every `.cursor/rules/*.mdc` file. Hold the result in memory and reuse it for ALL Rule Routing decisions in this run. Do NOT re-read frontmatter per task.
+6. **Sanity-check**:
+   - queue is empty after filtering -> say "нет готовых задач" and exit;
+   - all specified IDs do not exist -> stop and ask the user;
+   - `tag` is missing -> fall back to `master` and warn.
+7. Output the launch plan to the user in Russian: waves with IDs, each wave size, flags, estimated parallelism.
+8. If `dry-run`: exit. Otherwise:
+   - Create a minimal `TodoWrite` with ONE line using actual values, e.g. `Running queue: 12 tasks, 3 waves, parallel=3, verify=on`. Do NOT duplicate the full task list; Task Master already has it.
+   - Immediately enter the main loop. Do NOT wait for confirmation.
 
-Для каждой волны `i` из `M`:
+## Rule Routing (mandatory before every worker/verifier)
 
-### Шаг A. Подготовка волны
+Subagents currently do not guarantee automatic visibility of `.cursor/rules/*.mdc`, especially rules with `globs`. Therefore the orchestrator MUST select and pass relevant rule files explicitly. Pass the rule **paths** only, not the rule contents - the worker/verifier prompt template below tells subagents to read those files themselves. This keeps the prompt compact and makes the source of rules explicit.
 
-Для каждой задачи в волне:
+### How to Select Rules
 
-1. `get_task` по ID — полный контекст.
-2. Перепроверка ВНЕШНИХ зависимостей (тех, что не в текущей очереди):
-   - есть не-`done` зависимость → `set_task_status id={ID} status=blocked`, лог «зависимости не выполнены: …», задачу убираем из волны.
-3. Для оставшихся: `set_task_status id={ID} status=in-progress`.
+1. Use the cached rule frontmatter from `Preparation` step 5.
+2. Infer task `target_paths` from:
+   - `description`, `details`, `testStrategy`, and subtasks;
+   - explicitly mentioned files/directories;
+   - dependencies and neighboring code if the task clearly names a module/layer.
+3. Build `relevant_rules`:
+   - rules with `alwaysApply: true` may be omitted (already in context) but explicitly adding them is allowed;
+   - include every rule whose `globs` match any `target_paths`;
+   - if the task requires code changes and `target_paths` cannot be inferred confidently, include ALL `.cursor/rules/*.mdc` files with `globs` so no architectural rule is missed.
+4. Recompute `relevant_rules` if retry context or verifier issues introduce new `changed_files` / target directories.
+5. For verifier: pass the same `relevant_rules` the worker received plus any additional rules that match the actual `changed_files`.
 
-### Шаг B. Параллельный запуск worker'ов
+## Main Loop (by waves)
 
-Запусти ВСЕ задачи волны параллельно через **один батч** `Task` tool вызовов (несколько Task-блоков в одном сообщении). Размер батча = `parallel=K`. Если в волне больше K задач — запусти K, дождись, продолжи остаток.
+For each wave `i` out of `M`:
 
-Параметры каждого вызова:
+### Step A. Prepare the Wave
 
-- `subagent_type`: `"worker"` (либо `"explore"` для строго read-only исследовательских задач, либо `"shell"` для чисто инфраструктурных).
-- `description`: `Task {ID}: {title}` (короткий заголовок).
-- `prompt`: см. шаблон ниже.
+For each task in the wave:
 
-Шаблон промпта worker'у:
+1. Call `get_task` by ID to get full context.
+2. Run **Rule Routing** for the task: compute `target_paths` and `relevant_rules`, and keep the list attached to the task for worker/retry/verifier prompts.
+3. Recheck EXTERNAL dependencies, meaning dependencies not in the current queue:
+   - if any dependency is not `done`, call `set_task_status id={ID} status=blocked`, log "dependencies not completed: ...", and remove the task from the wave.
+4. For remaining tasks, call `set_task_status id={ID} status=in-progress`.
+
+### Step B. Launch Workers in Parallel
+
+Launch tasks in the wave in parallel using **one batch** of `Task` tool calls: multiple Task blocks in one message. Batch size = `parallel=K`. If the wave has more than K tasks, launch K, wait for them, then continue with the rest.
+
+Parameters for each call:
+
+- `subagent_type`: `"worker"`.
+- `description`: `Task {ID}: {title}` (short title).
+- `prompt`: use the template below.
+
+Worker prompt template:
 
 ```text
 КОНТЕКСТ ЗАДАЧИ
 Task ID: <ID>
-Tag: <tag>
 Title: <title>
 Priority: <priority>
 
@@ -118,86 +143,102 @@ Test Strategy:
 <testStrategy>
 
 Subtasks (внутренний чек-лист, по порядку):
-<полный список subtasks с их details, либо «нет»>
+<полный список subtasks с details, либо "none">
 
 Dependencies (уже выполнены):
-<id+title список, либо «нет»>
+<список id+title, либо "none">
+
+Target paths inferred by orchestrator:
+<список target_paths, либо "unknown">
+
+Relevant Cursor Rules:
+<relative paths из relevant_rules, либо "- none">
+
+Перед правками прочитай эти rule-файлы и считай их обязательными.
+Если задача конфликтует с ними, остановись и верни `blocked` с понятным `blocker`.
+Если поймёшь, что правки должны затронуть путь, покрытый непереданным Cursor rule, остановись и сообщи о missing rule routing вместо угадывания.
+В финальном JSON перечисли применённые rules в поле `applied_rules`.
 
 [ОПЦИОНАЛЬНО, если это retry]
 PREVIOUS_ATTEMPTS_HISTORY:
-<история прошлых попыток: что пытался, чем закончилось, ошибки/issues>
+<история прошлых попыток: что пробовали, результат, ошибки/issues>
 
-[ОПЦИОНАЛЬНО, если verifier требует доработки]
+[ОПЦИОНАЛЬНО, если verifier потребовал доработку]
 PREVIOUS_VERIFY_ISSUES:
-<issues от verifier'а с прошлой попытки>
+<issues от verifier с прошлой попытки>
 
 [ОПЦИОНАЛЬНО, если задача возобновлена после needs_user_input]
 USER_RESPONSE:
 <ответ пользователя дословно>
 
-Финальное сообщение — JSON-блок согласно твоему контракту.
+Финальное сообщение: JSON-блок согласно твоему контракту.
 ```
 
-### Шаг C. Сбор отчётов worker'ов
+### Step C. Collect Worker Reports
 
-Дождись всех worker'ов волны. Для каждого извлеки JSON-блок: **последний** блок ` ```json ... ``` ` в ответе.
+Wait for every worker in the wave. Extract the JSON block from each response using this algorithm:
 
-Если JSON не парсится → считаем `status="failed"`, `error="malformed report: <первые 200 символов>"`.
+1. Find the **last** fenced code block tagged `json` in the response.
+2. Parse it as JSON.
+3. If parsing fails, treat it as `status="failed"`, `error="malformed report: <first 200 chars of response>"`.
+4. If required fields are missing (`status` for worker, `verify_status` for verifier), treat it the same way.
 
-### Шаг C.5. Детектор пересечений `changed_files`
+The same algorithm applies to verifier reports in Step D.
 
-ПОСЛЕ сбора JSON-отчётов worker'ов и ДО запуска verifier'ов:
+### Step C.5. `changed_files` Collision Detector
 
-1. Собери `changed_files` от каждой задачи волны, у которой `status="completed"`.
-   - Нормализуй пути: убери ведущий `./`, приведи разделители к `/`.
-   - Игнорируй абсолютные пути вне `projectRoot`.
-   - Игнорируй пути из white-list:
-     - `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` — лок-файлы.
-     - `.taskmaster/state.json`, `.taskmaster/config.json` — служебные файлы Task Master (worker не должен их трогать, но если попало — игнор).
+AFTER collecting worker JSON reports and BEFORE launching verifiers:
 
-2. Построй граф коллизий:
-   - Узлы — задачи со `status="completed"`.
-   - Рёбра — между задачами, у которых пересекаются `changed_files` (хотя бы один общий путь).
-   - Найди связные компоненты (union-find или DFS).
+1. Collect `changed_files` from each task in the wave where `status="completed"`.
+   - Normalize paths: remove leading `./`, normalize separators to `/`.
+   - Ignore absolute paths outside `projectRoot`.
+   - Ignore paths from this allowlist:
+     - `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` - lockfiles.
+     - `.taskmaster/state.json`, `.taskmaster/config.json` - Task Master service files. Workers must not touch them, but ignore them here if they appear.
 
-3. Для каждой компоненты размером ≥ 2:
-   - НЕ запускай verifier'а для этих задач (бесполезно — состояние файлов уже перетёрто).
-   - Для каждой задачи компоненты: `set_task_status id={ID} status=review`.
-   - Сформируй блок `COLLISION` для этой компоненты:
+2. Build a collision graph:
+   - Nodes are tasks with `status="completed"`.
+   - Edges connect tasks whose `changed_files` intersect (at least one shared path).
+   - Find connected components using union-find or DFS.
+
+3. For each component of size >= 2:
+   - Do NOT launch verifier for those tasks; the file state has already been overwritten, so verification is not meaningful.
+   - For each task in the component: `set_task_status id={ID} status=review`.
+   - Tasks marked here SKIP Step D and Step E entirely.
+   - Create a collision block for the component:
 
      ```text
-     COLLISION в волне {i}:
+     КОЛЛИЗИЯ в волне {i}:
        Задачи: {список ID}
        Конфликтующие файлы:
-         - <путь> (правили: <ID_1>, <ID_2>, ...)
-         - <путь> (правили: <ID>, ...)
-       Действие: задачи переведены в `review`. Посмотри git diff, оставь
-                 лучшую версию, остальные перезапусти через
-                 /run-tasks {ID_остальных} parallel=1
+         - <path> (правили: <ID_1>, <ID_2>, ...)
+         - <path> (правили: <ID>, ...)
+       Действие: задачи переведены в `review`. Посмотри git diff, оставь лучшую версию,
+                 затем перезапусти остальные задачи через:
+               /run-tasks {remaining_IDs} parallel=1
      ```
 
-   - Сохрани блок в накопитель коллизий запуска (для финальной сводки).
-   - Залогируй блок в чат пользователя сразу.
+   - Store the block in the run-level collision accumulator for the final summary.
+   - Log the block to the user chat immediately.
 
-4. Задачи в компонентах размером 1 — продолжают шаг D (verifier).
+4. Tasks in components of size 1 continue to Step D (verifier).
 
-5. Задачи со `status` не равным `"completed"` (failed/blocked/needs_user_input) — детектор не трогает, у них своя логика в шаге E.
+5. Tasks whose `status` is not `"completed"` (failed/blocked/needs_user_input) are not touched by the detector; they have their own logic in Step E.
 
-### Шаг D. Верификация (если `verify` включен)
+### Step D. Verification (if `verify` is enabled)
 
-Для каждой задачи со `status="completed"`, **прошедшей шаг C.5** (не попавшей в коллизию), запусти **параллельно** verifier'а через `Task` tool в одном батче.
+For each task with `status="completed"` that **passed Step C.5** (not part of a collision), launch verifier in parallel through the `Task` tool. Use the same `parallel=K` batch limit as Step B.
 
-Параметры:
+Parameters:
 
 - `subagent_type`: `"verifier"`.
 - `description`: `Verify Task {ID}: {title}`.
 
-Шаблон промпта verifier'у:
+Verifier prompt template:
 
 ```text
 ВЕРИФИКАЦИЯ
 Task ID: <ID>
-Tag: <tag>
 Title: <title>
 
 Description:
@@ -218,108 +259,103 @@ Worker verification claim:
 <worker.verification>
 
 changed_files:
-<worker.changed_files списком>
+<список worker.changed_files>
 
-Финальное сообщение — JSON-блок согласно твоему контракту.
+Relevant Cursor Rules:
+<relative paths из worker relevant_rules + rules, дополнительно сматченные по worker.changed_files, либо "- none">
+
+Перед проверкой прочитай эти rule-файлы и считай их обязательными.
+Проверь, что реализация им соответствует.
+Если worker изменил файлы, которые должны были сматчить непереданный Cursor rule, добавь issue с `category: "architecture"` и опиши missing rule routing.
+В финальном JSON перечисли применённые rules в поле `applied_rules`.
+
+Финальное сообщение: JSON-блок согласно твоему контракту.
 ```
 
-Дождись всех verifier'ов.
+Wait for all verifiers. Parse each report using the algorithm from Step C.
 
-### Шаг E. Финализация задач волны
+### Step E. Finalize Wave Tasks
 
-Применяй правила решений в порядке сверху вниз — первое подходящее условие определяет действие:
+Apply decision rules from top to bottom. The first matching condition determines the action. Tasks already marked `review` by Step C.5 (collisions) are skipped here entirely.
 
-- **`worker.status="completed"` + детектор C.5 пометил коллизию**
-  - `set_task_status=review` (уже сделано на шаге C.5), идём дальше.
-- **`worker.status="completed"` + `verifier.recommendation="accept"` (или `verify` выключен)**
-  - `set_task_status=done`. Если `verifier.issues` непуст (стилистические замечания) — сложи их в накопитель **style-notes** для финальной сводки. Статус задачи остаётся `done`.
-- **`worker.status="completed"` + `verifier.recommendation="rework"`**
-  - повторный worker (та же волна, новый сабагент) с `PREVIOUS_VERIFY_ISSUES` (передавай `category` + `severity` + `file:line` + `description` + `suggestion` + `reference` для каждой issue). Только 1 раз. Если снова `rework` → `set_task_status=review`.
+- **`worker.status="completed"` + `verifier.recommendation="accept"` (or `verify` is disabled)**
+  - `set_task_status id={ID} status=done`. If `verifier.issues` is non-empty (style notes), add them to the **style-notes** accumulator for the final summary. Task status remains `done`.
+- **`worker.status="completed"` + `verifier.recommendation="rework"` (first time only)**
+  - Launch ONE retry worker in the same wave with `PREVIOUS_VERIFY_ISSUES` (pass `category` + `severity` + `file:line` + `description` + `suggestion` + `reference` for each issue). Then re-run Step C and Step D for that single task with one mutation: any non-`accept` outcome on this retry collapses to `set_task_status id={ID} status=review`. There is NO third attempt.
 - **`worker.status="completed"` + `verifier.recommendation="reject"`**
-  - `set_task_status=review`, `issues` в финальную сводку для пользователя (с `category` + `severity` + `file:line` + `description` + `suggestion`). НЕ останавливаться.
-- **`worker.status="completed"` + `verifier.verify_status="inconclusive"`**
-  - `set_task_status=done`, в логе пометить «верификация неполная: <причина>».
+  - `set_task_status id={ID} status=review`. Include `issues` in the final user summary (`category` + `severity` + `file:line` + `description` + `suggestion`). Do NOT stop.
 - **`worker.status="needs_user_input"`**
-  - **СТОП**. Передай пользователю `question` 1:1, добавь свой контекст (Task ID, что уже сделано). После ответа — повторно запусти worker'а с блоком `USER_RESPONSE`, не начинай с нуля.
+  - **STOP**. Pass `question` to the user exactly as written and add your own context (Task ID, what has already been done). After the user answers, rerun the worker with a `USER_RESPONSE` block; do not start from scratch.
 - **`worker.status="blocked"`**
-  - `set_task_status=blocked`, лог `blocker`, идём дальше.
-- **`worker.status="failed"` (1-я попытка)**
-  - повторный worker с `PREVIOUS_ATTEMPTS_HISTORY`. В промпте попроси сначала описать план в первой реплике.
-- **`worker.status="failed"` (2-я попытка)**
-  - **diagnostic-режим**: запусти verifier'а с задачей «диагностируй, что мешает» (промпт ниже). Его отчёт → пользователю в финальную сводку. `set_task_status=review`, идём дальше.
+  - `set_task_status id={ID} status=blocked`, log `blocker`, then continue.
+- **`worker.status="failed"` (1st attempt)**
+  - Retry with a worker using `PREVIOUS_ATTEMPTS_HISTORY`. In the prompt, ask the worker to first describe its plan in the first reply. Re-run Step C and Step D for that task; treat the retry result by these same rules, except `failed` on retry collapses to the diagnostic mode below.
+- **`worker.status="failed"` (2nd attempt)**
+  - **diagnostic mode**: launch verifier with the goal "diagnose what is blocking progress" using the prompt below. Its report goes to the final user summary. `set_task_status id={ID} status=review`, then continue. Do NOT re-apply Step E rules to the diagnostic verifier output.
 
-Diagnostic-промпт (вместо обычного verifier'а после двух failed). Запускается тем же `subagent_type: "verifier"`, но с переопределённой целью:
+Diagnostic prompt, used instead of normal verifier after two failed worker attempts. Use the same `subagent_type: "verifier"`, but override the goal:
 
 ```text
 ДИАГНОСТИЧЕСКИЙ РЕЖИМ
-Сегодня твоя цель НЕ принять/отвергнуть, а ОБЪЯСНИТЬ, почему задача два раза провалилась. Read-only ограничения и общий стиль работы — как обычно, но формат отчёта переопределён ниже.
+Твоя цель НЕ принять/отклонить работу, а ОБЪЯСНИТЬ, почему задача дважды провалилась. Read-only ограничения и общий стиль работы остаются прежними, но формат отчёта переопределён ниже.
 
 ДИАГНОСТИКА
-Task ID, контекст задачи: <…>
+Task ID и контекст задачи: <...>
 Что пробовали: <PREVIOUS_ATTEMPTS_HISTORY>
 
 Найди:
-- какие предположения worker'а были неверны;
-- что в кодовой базе мешает (отсутствует, сломано, не задокументировано);
+- какие предположения worker были неверны;
+- что в кодовой базе мешает задаче (отсутствует, сломано, не задокументировано);
 - какой реальный объём работы нужен;
-- стоит ли разбить задачу на подзадачи и как.
+- стоит ли разбить задачу на subtasks и как.
 
-В JSON-отчёте используй `verify_status: "inconclusive"`, `recommendation: "reject"`, в `issues` положи диагностику с `severity` и `description`. В `summary` — краткий вывод для пользователя.
+В JSON-отчёте используй `verify_status: "inconclusive"` и `recommendation: "reject"`. Диагностику положи в `issues` с `severity` и `description`. В `summary` дай короткий вывод для пользователя.
 ```
 
-### Шаг F. Прогресс волны
+### Step F. Wave Progress
 
-После каждой волны выведи блок:
+After each wave, output this block:
 
 ```text
 Волна {i}/{M}:
-  Done:           [список ID]
-  Review:         [список ID + 1 строка причина]
-  Collision:      [список ID + конфликтующие файлы] (если были в C.5)
-  Blocked:        [список ID + причина]
-  Awaiting input: [список ID + вопрос]   <-- ОСТАНОВКА, если непустой
+  Выполнено:      [список ID]
+  На review:      [список ID + причина в одну строку]
+  Коллизии:       [список ID + конфликтующие файлы] (если были в C.5)
+  Заблокировано:  [список ID + причина]
+  Ожидает ввода:  [список ID + вопрос]   <-- СТОП, если непустой
 ```
 
-Если есть `Awaiting input` — стоп до ответа пользователя.
+If `Ожидает ввода` is non-empty, stop until the user answers.
 
-## ЗАВЕРШЕНИЕ
+## Completion
 
-Когда все волны пройдены:
+When all waves are complete:
 
-1. `get_tasks` для свежего среза.
-2. Сводка пользователю:
-   - **Done**: список ID + 1 строка summary.
-   - **Style notes**: для done-задач с непустым `verifier.issues` — список ID + по каждой issue одной строкой (`category/severity` + `file:line` + `description` → `suggestion`). Это не блокеры, но стоит просмотреть.
-   - **Review**: список ID + перечень verifier.issues по каждому (`category/severity` + `file:line` + `description` → `suggestion`, по необходимости с `reference`).
-   - **Collisions**: накопитель блоков `COLLISION` со всех волн (если были).
-   - **Blocked**: список ID + причины.
-   - **Awaiting input**: если что-то осталось — список ID + вопросы.
-   - **Failed/diagnosed**: список ID + диагностика (если был diagnostic-режим).
-3. Агрегированный список изменённых файлов (объединение `changed_files` по всем worker'ам, дедуп).
-4. НЕ предлагай коммит / PR.
+1. Call `get_tasks` for a fresh snapshot.
+2. User summary in Russian:
+   - **Готово**: список ID + summary в одну строку.
+   - **Стилистические замечания**: для done-задач с непустым `verifier.issues` - список ID + по каждой issue одна строка (`category/severity` + `file:line` + `description` -> `suggestion`). Это не блокеры, но их стоит просмотреть.
+   - **На review**: список ID + verifier issues по каждой задаче (`category/severity` + `file:line` + `description` -> `suggestion`, с `reference`, если полезно).
+   - **Коллизии**: накопленные блоки `КОЛЛИЗИЯ` со всех волн, если были.
+   - **Заблокировано**: список ID + причины.
+   - **Ожидает ввода**: если что-то осталось, список ID + вопросы.
+   - **Провалено/диагностика**: список ID + диагностика, если использовался diagnostic mode.
+3. Aggregated changed file list in Russian: union of `changed_files` from all workers, deduplicated.
+4. Do NOT suggest a commit or PR.
 
-## КРИТИЧЕСКИЕ ПРАВИЛА АВТОНОМНОСТИ
+## Critical Autonomy Rules
 
-- НЕ останавливайся между волнами при `done` / `blocked` / `review` / `failed→review` / `collision→review`. Сразу следующая.
-- ОСТАНАВЛИВАЙСЯ только при:
-  - `needs_user_input` от worker'а;
-  - неоднозначном `$ARGUMENTS`;
-  - провалившемся sanity-check на старте (нет задач, тег не валиден и т.п.);
-  - MCP Task Master недоступен после 3 попыток с экспоненциальной задержкой (1с → 2с → 4с).
-- НЕ правь `tasks.json` напрямую — только через MCP инструменты Task Master.
-- НЕ коммить, не пушь, не создавай PR.
-- НЕ вызывай `autopilot_*` инструменты — у нас собственная оркестрация.
-- НИ worker, НИ verifier не имеют права менять статусы Task Master. Это исключительная обязанность оркестратора.
+- Do NOT stop between waves for `done` / `blocked` / `review` / `failed->review` / `collision->review`. Immediately proceed to the next wave.
+- Stop ONLY for:
+  - `needs_user_input` from a worker;
+  - ambiguous `$ARGUMENTS`;
+  - failed startup sanity-check (no tasks, invalid tag, etc.);
+  - Task Master MCP unavailable after 3 attempts with exponential backoff (1s -> 2s -> 4s).
+- Do NOT edit `tasks.json` directly; use only Task Master MCP tools.
+- Do NOT commit, push, or create PRs.
+- Do NOT call `autopilot_*` tools; this command has its own orchestration.
+- Neither worker nor verifier may change Task Master statuses. This is exclusively the orchestrator's responsibility.
 
-## ИЗВЛЕЧЕНИЕ JSON ИЗ ОТЧЁТА САБАГЕНТА
+## Start
 
-Сабагент возвращает текст. Алгоритм извлечения:
-
-1. Найти **последний** кодовый блок с тегом `json`.
-2. Распарсить как JSON.
-3. При ошибке парсинга → считать `status="failed"`, `error="malformed report: <первые 200 символов ответа>"`.
-4. При отсутствии обязательных полей (`status` для worker'а, `verify_status` для verifier'а) → то же самое.
-
-## СТАРТ
-
-Выполни «Подготовку», затем сразу запусти главный цикл. Подтверждение не запрашивай.
+Run "Preparation", then immediately start the main loop. Do not ask for confirmation.
