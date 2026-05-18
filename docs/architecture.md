@@ -4,31 +4,34 @@
 
 - **Модульная архитектура**: каждый модуль содержит всё о себе — domain, infra, use cases, ws-контроллер
 - **Доменные интерфейсы + операции**: модели — интерфейсы в `domain/models/`, бизнес-логика — чистые функции в `domain/operations/`. Prisma-генерированные типы структурно совместимы с доменными интерфейсами — маппинг не нужен. Use case работает только с абстракциями из `domain/`
-- **DIP**: интерфейсы (modules/*/domain/), реализации (infra/prisma/) импортируют их через `import type`
+- **DIP**: репозитории — конкретные классы в `domain/repositories/`, инжектят `PrismaService` (глобальный). Связываются с DI через `*.domain.module.ts`. Модели — интерфейсы, репозитории — классы
 - **Full WebSocket**: один тонкий gateway-роутер, делегирует в ws-контроллер каждого модуля. REST — только auth и file upload
 - **Real-time**: изменения задач, комментарии, уведомления — всё через WebSocket
 
 ## Технологический стек
 
 - NestJS + TypeScript
-- PostgreSQL + Prisma (миграции, `prisma migrate`)
+- PostgreSQL + Prisma (миграции, `prisma migrate`, `prisma.config.ts`)
+- `@nestjs/config` (конфигурация окружения)
+- `nestjs-cls` (continuation-local storage для контекста транзакций)
 - Redis (кэш, pub/sub для WebSocket scaling между инстансами)
 - BullMQ (очереди: уведомления, email, тяжёлые операции)
 - WebSocket через `@nestjs/websockets` + `socket.io`
 - S3 / MinIO (вложения к задачам)
-- JWT + Refresh tokens
+- JWT + Refresh tokens (через `@nestjs/jwt` + `@nestjs/passport`)
 - `class-validator` + `class-transformer` (DTO валидация)
+- `cookie-parser` (refresh token в httpOnly cookie)
 - `@nestjs/event-emitter` (межмодульные события)
 
 ## Правила зависимостей
 
-- Use case импортирует ТОЛЬКО из `domain/` — модели (интерфейсы), операции (функции), репозитории (интерфейсы), исключения. Никогда из `infra/`
-- Use case МОЖЕТ инжектить репозитории/gateway своего и чужого модуля по интерфейсу (через DI-токен)
-- modules/*/infra/prisma/ — репозитории; реализуют интерфейсы из domain/repositories/ через `import type` (DIP). Схема БД — `common/infra/prisma/schema.prisma` и фрагменты в `common/infra/prisma/models/*.prisma`
-- modules/*/infra/prisma/ НЕ МОЖЕТ импортировать use cases, контроллеры, ws-контроллеры или DTO
-- common/infra/prisma/ — Prisma schema, client, миграции; импортируется в app.module.ts
-- common/ — кросс-модульный код, разложенный по слоям (domain, use-cases, infra, http); подробно — в разделе «Слой `src/common/`» ниже
-- Кросс-модульный доступ к данным: модуль импортирует `*.infra.module.ts` другого модуля
+- Use case импортирует ТОЛЬКО из `domain/` — модели (интерфейсы), операции (функции), репозитории, исключения. Никогда из `infra/`
+- Use case МОЖЕТ инжектить репозитории/gateway своего и чужого модуля (через DI — все они доступны через `*.domain.module.ts`)
+- `core/*/domain/repositories/` — репозитории; конкретные классы, инжектят `PrismaService`. Схема БД — `common/infra/prisma/schema.prisma` и фрагменты в `common/infra/prisma/models/*.prisma`
+- `core/*/domain/` НЕ МОЖЕТ импортировать use cases, контроллеры, ws-контроллеры или DTO
+- `common/infra/prisma/` — Prisma schema, client, миграции; `PrismaModule` — `@Global()`, импортируется в `app.module.ts`
+- `common/` — кросс-модульный код; подробно — в разделе «Слой `src/common/`» ниже
+- Кросс-модульный доступ к данным: модуль импортирует `*.module.ts` другого модуля (репозитории доступны через реэкспорт из domain-модуля)
 - Кросс-модульные JOIN-ы в репозиториях запрещены. Каждый модуль работает только со своими таблицами: не использовать Prisma `include`/`select` с relations на таблицы другого модуля. Если use case нужны данные из двух модулей — он получает их отдельными вызовами через репозитории каждого модуля. Ссылки на сущности другого модуля хранятся как `id: string`, без Prisma relation
 - Gateway — тонкий роутер, не содержит логики, делегирует в ws-контроллер модулей
 
@@ -211,91 +214,97 @@ erDiagram
 ## Структура папок
 
 ```text
+prisma.config.ts                            # Prisma 7: schema path, datasource
+
 src/
 ├── main.ts
 ├── app.module.ts
 │
-├── common/                                  # кросс-модульный код по слоям (зеркалит структуру модулей)
-│   ├── domain/
-│   │   ├── index.ts                         # barrel: DomainException, CommonDI, New, TransactionRunner
-│   │   ├── di.tokens.ts
-│   │   ├── exceptions/
-│   │   │   └── domain.exception.ts          # базовый класс для доменных ошибок в модулях
-│   │   └── types/
-│   │       ├── generics.ts                  # New<T> и др.
-│   │       └── trx-runner.ts                # TransactionRunner
-│   ├── use-cases/
-│   │   ├── index.ts
-│   │   ├── validate-dto.decorator.ts
-│   │   └── dto-validation-failed.exception.ts
+├── common/                                 # кросс-модульный код
+│   ├── decorators/
+│   │   ├── index.ts                        # barrel: ValidateDto
+│   │   └── validate-dto.decorator.ts
+│   ├── exceptions/
+│   │   ├── index.ts                        # barrel: DomainException, DtoFailed
+│   │   ├── domain.exception.ts             # базовый класс для доменных ошибок в модулях
+│   │   └── dto-failed.exception.ts         # прикладное исключение валидации DTO
+│   ├── http/
+│   │   └── filters/
+│   │       ├── index.ts
+│   │       ├── domain-exception.filter.ts
+│   │       └── dto-validation-failed.filter.ts
 │   ├── infra/
 │   │   └── prisma/
-│   │       ├── schema.prisma
-│   │       ├── models/*.prisma              # фрагменты схемы
-│   │       ├── prisma.module.ts
-│   │       ├── prisma.service.ts
-│   │       ├── prisma-db.ts
-│   │       ├── prisma-trx-runner.ts
-│   │       ├── transaction-context.ts
-│   │       └── index.ts
-│   └── http/
-│       └── filters/
-│           ├── domain-exception.filter.ts
-│           ├── dto-validation-failed.filter.ts
-│           └── index.ts
+│   │       ├── index.ts                    # barrel: PrismaModule, PrismaConnector, PrismaService, TransactionContext, TransactionRunner
+│   │       ├── schema.prisma               # корень схемы: generator + datasource
+│   │       ├── models/                     # фрагменты схемы
+│   │       │   ├── user.prisma
+│   │       │   ├── user-credentials.prisma
+│   │       │   └── workspace.prisma
+│   │       ├── migrations/
+│   │       ├── prisma.module.ts            # @Global() — PrismaModule
+│   │       ├── prisma.service.ts           # PrismaService: обёртка Prisma client
+│   │       ├── prisma.connector.ts         # подключение к БД через pg adapter
+│   │       ├── transaction-context.ts      # async-local контекст транзакций (nestjs-cls)
+│   │       └── transaction.runner.ts       # TransactionRunner: runInTransaction()
+│   └── types/
+│       ├── index.ts                        # barrel: SystemFields, New, Updatable
+│       └── generics.ts                     # New<T>, Updatable<T>, SystemFields
 │
-├── ws/
+├── http/                                   # HTTP-слой (REST)
+│   ├── http.module.ts
+│   └── controllers/
+│       └── auth.controller.ts
+│
+├── ws/                                     # WebSocket-слой
 │   ├── web-socket.module.ts
 │   └── web-socket.gateway.ts               # тонкий WS роутер
 │
-└── modules/
+└── core/                                   # бизнес-модули
     │
     ├── auth/
     │   ├── auth.module.ts
-    │   ├── auth.http.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts                    # barrel: модели, исключения
     │   │   ├── di.tokens.ts
+    │   │   ├── auth.domain.module.ts        # JwtModule.registerAsync + providers: UserCredentialsRepository, PasswordHasher, TokenCodec
     │   │   ├── models/
     │   │   │   ├── user-credentials.ts      # userId, passwordHash
     │   │   │   └── refresh-token.ts         # userCredsId, token, expiresAt
     │   │   ├── types/
-    │   │   │   └── auth.types.ts            # UserTokens, JwtPayload
+    │   │   │   └── index.ts                # UserTokens, AccessTokenPayload
     │   │   ├── repositories/
-    │   │   │   └── auth-user.repository.ts  # единый репозиторий для credentials и refresh tokens
+    │   │   │   └── user-credentials.repository.ts
+    │   │   ├── tools/
+    │   │   │   ├── password-hasher.ts
+    │   │   │   └── token-codec.ts
     │   │   └── exceptions/
     │   │       ├── invalid-credentials.ts
     │   │       ├── email-already-exists.ts
     │   │       └── unauthorized.ts
     │   │
-    │   ├── infra/
-    │   │   ├── auth.infra.module.ts
-    │   │   └── prisma/
-    │   │       └── auth-user.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── sign-up.case.ts
-    │   │   ├── sign-in.case.ts
-    │   │   ├── refresh-tokens.case.ts
-    │   │   ├── logout.case.ts
-    │   │   ├── validate-token.case.ts
-    │   │   └── dto/
-    │   │       ├── sign-up.dto.ts
-    │   │       ├── sign-in.dto.ts
-    │   │       └── refresh-tokens.dto.ts
-    │   │
-    │   ├── strategies/
-    │   │   ├── jwt.strategy.ts
-    │   │   └── jwt-refresh.strategy.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── index.ts                    # barrel: GetMeCase, ...
+    │       ├── sign-up.case.ts
+    │       ├── sign-in.case.ts
+    │       ├── refresh-tokens.case.ts
+    │       ├── logout.case.ts
+    │       ├── get-me.case.ts
+    │       └── dto/
+    │           ├── sign-up.dto.ts
+    │           ├── sign-in.dto.ts
+    │           ├── refresh-tokens.dto.ts
+    │           ├── logout.dto.ts
+    │           └── get-me.dto.ts
     │
     ├── user/
     │   ├── user.module.ts
-    │   ├── user.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts                    # barrel: User + UserNotFound
     │   │   ├── di.tokens.ts
+    │   │   ├── user.domain.module.ts        # providers: UserRepository
     │   │   ├── models/
     │   │   │   └── user.ts
     │   │   ├── repositories/
@@ -303,68 +312,56 @@ src/
     │   │   └── exceptions/
     │   │       └── user-not-found.ts
     │   │
-    │   ├── infra/
-    │   │   ├── user.infra.module.ts
-    │   │   └── prisma/
-    │   │       └── user.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── get-profile.case.ts
-    │   │   ├── update-profile.case.ts
-    │   │   ├── upload-avatar.case.ts
-    │   │   └── dto/
-    │   │       └── update-profile.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── index.ts                    # barrel: GetUserCase
+    │       ├── get-user.case.ts
+    │       ├── update-user.case.ts
+    │       ├── upload-avatar.case.ts
+    │       └── dto/
+    │           └── update-user.dto.ts
     │
     ├── workspace/
     │   ├── workspace.module.ts
-    │   ├── workspace.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts                    # barrel: Workspace, WorkspaceMember, WorkspaceMemberRole
     │   │   ├── di.tokens.ts
+    │   │   ├── workspace.domain.module.ts   # providers: WorkspaceRepository, MemberRepository
     │   │   ├── models/
     │   │   │   ├── workspace.ts
-    │   │   │   └── workspace-member.ts         # interface WorkspaceMember
-    │   │   ├── operations/
-    │   │   │   └── workspace-member.operations.ts  # assertCanInvite(), assertCanRemove()
+    │   │   │   └── workspace-member.ts
     │   │   ├── repositories/
     │   │   │   ├── workspace.repository.ts
-    │   │   │   └── workspace-member.repository.ts
+    │   │   │   └── member.repository.ts
     │   │   └── exceptions/
     │   │       ├── workspace-not-found.ts
     │   │       ├── already-member.ts
     │   │       └── insufficient-role.ts
     │   │
-    │   ├── infra/
-    │   │   ├── workspace.infra.module.ts
-    │   │   └── prisma/
-    │   │       ├── workspace.repository.ts
-    │   │       └── workspace-member.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── create-workspace.case.ts
-    │   │   ├── update-workspace.case.ts
-    │   │   ├── delete-workspace.case.ts
-    │   │   ├── invite-member.case.ts
-    │   │   ├── remove-member.case.ts
-    │   │   ├── change-member-role.case.ts
-    │   │   ├── list-workspaces.case.ts
-    │   │   ├── list-members.case.ts
-    │   │   └── dto/
-    │   │       ├── create-workspace.dto.ts
-    │   │       ├── update-workspace.dto.ts
-    │   │       ├── invite-member.dto.ts
-    │   │       └── change-member-role.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── index.ts
+    │       ├── create-workspace.case.ts
+    │       ├── update-workspace.case.ts
+    │       ├── delete-workspace.case.ts
+    │       ├── invite-member.case.ts
+    │       ├── remove-member.case.ts
+    │       ├── change-member-role.case.ts
+    │       ├── list-workspaces.case.ts
+    │       ├── list-members.case.ts
+    │       └── dto/
+    │           ├── create-workspace.dto.ts
+    │           ├── update-workspace.dto.ts
+    │           ├── invite-member.dto.ts
+    │           └── change-member-role.dto.ts
     │
     ├── project/
     │   ├── project.module.ts
     │   ├── project.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts
     │   │   ├── di.tokens.ts
+    │   │   ├── project.domain.module.ts
     │   │   ├── models/
     │   │   │   ├── project.ts
     │   │   │   └── section.ts
@@ -375,40 +372,34 @@ src/
     │   │       ├── project-not-found.ts
     │   │       └── section-not-found.ts
     │   │
-    │   ├── infra/
-    │   │   ├── project.infra.module.ts
-    │   │   └── prisma/
-    │   │       ├── project.repository.ts
-    │   │       └── section.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── create-project.case.ts
-    │   │   ├── update-project.case.ts
-    │   │   ├── delete-project.case.ts
-    │   │   ├── get-project.case.ts
-    │   │   ├── list-projects.case.ts
-    │   │   ├── create-section.case.ts
-    │   │   ├── update-section.case.ts
-    │   │   ├── delete-section.case.ts
-    │   │   ├── reorder-sections.case.ts
-    │   │   └── dto/
-    │   │       ├── create-project.dto.ts
-    │   │       ├── update-project.dto.ts
-    │   │       ├── create-section.dto.ts
-    │   │       ├── update-section.dto.ts
-    │   │       └── reorder-sections.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── create-project.case.ts
+    │       ├── update-project.case.ts
+    │       ├── delete-project.case.ts
+    │       ├── get-project.case.ts
+    │       ├── list-projects.case.ts
+    │       ├── create-section.case.ts
+    │       ├── update-section.case.ts
+    │       ├── delete-section.case.ts
+    │       ├── reorder-sections.case.ts
+    │       └── dto/
+    │           ├── create-project.dto.ts
+    │           ├── update-project.dto.ts
+    │           ├── create-section.dto.ts
+    │           ├── update-section.dto.ts
+    │           └── reorder-sections.dto.ts
     │
     ├── task/
     │   ├── task.module.ts
     │   ├── task.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts
     │   │   ├── di.tokens.ts
+    │   │   ├── task.domain.module.ts
     │   │   ├── models/
     │   │   │   ├── task.ts                    # interface Task
-    │   │   │   └── comment.ts                 # interface Comment (подсущность задачи)
+    │   │   │   └── comment.ts                 # interface Comment
     │   │   ├── operations/
     │   │   │   └── task.operations.ts          # completeTask(), reopenTask(), isOverdue()
     │   │   ├── repositories/
@@ -419,48 +410,42 @@ src/
     │   │       ├── task-already-completed.ts
     │   │       └── comment-not-found.ts
     │   │
-    │   ├── infra/
-    │   │   ├── task.infra.module.ts
-    │   │   └── prisma/
-    │   │       ├── task.repository.ts
-    │   │       └── comment.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── task/
-    │   │   │   ├── create-task.case.ts
-    │   │   │   ├── update-task.case.ts
-    │   │   │   ├── delete-task.case.ts
-    │   │   │   ├── get-task.case.ts
-    │   │   │   ├── list-tasks.case.ts
-    │   │   │   ├── complete-task.case.ts
-    │   │   │   ├── reopen-task.case.ts
-    │   │   │   ├── assign-task.case.ts
-    │   │   │   ├── move-task.case.ts
-    │   │   │   └── create-subtask.case.ts
-    │   │   ├── comment/
-    │   │   │   ├── create-comment.case.ts
-    │   │   │   ├── update-comment.case.ts
-    │   │   │   ├── delete-comment.case.ts
-    │   │   │   └── list-comments.case.ts
-    │   │   └── dto/
-    │   │       ├── task/
-    │   │       │   ├── create-task.dto.ts
-    │   │       │   ├── update-task.dto.ts
-    │   │       │   ├── move-task.dto.ts
-    │   │       │   ├── assign-task.dto.ts
-    │   │       │   └── task-filter.dto.ts
-    │   │       └── comment/
-    │   │           ├── create-comment.dto.ts
-    │   │           └── update-comment.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── task/
+    │       │   ├── create-task.case.ts
+    │       │   ├── update-task.case.ts
+    │       │   ├── delete-task.case.ts
+    │       │   ├── get-task.case.ts
+    │       │   ├── list-tasks.case.ts
+    │       │   ├── complete-task.case.ts
+    │       │   ├── reopen-task.case.ts
+    │       │   ├── assign-task.case.ts
+    │       │   ├── move-task.case.ts
+    │       │   └── create-subtask.case.ts
+    │       ├── comment/
+    │       │   ├── create-comment.case.ts
+    │       │   ├── update-comment.case.ts
+    │       │   ├── delete-comment.case.ts
+    │       │   └── list-comments.case.ts
+    │       └── dto/
+    │           ├── task/
+    │           │   ├── create-task.dto.ts
+    │           │   ├── update-task.dto.ts
+    │           │   ├── move-task.dto.ts
+    │           │   ├── assign-task.dto.ts
+    │           │   └── task-filter.dto.ts
+    │           └── comment/
+    │               ├── create-comment.dto.ts
+    │               └── update-comment.dto.ts
     │
     ├── notification/
     │   ├── notification.module.ts
     │   ├── notification.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts
     │   │   ├── di.tokens.ts
+    │   │   ├── notification.domain.module.ts
     │   │   ├── models/
     │   │   │   └── notification.ts
     │   │   ├── repositories/
@@ -468,55 +453,46 @@ src/
     │   │   └── exceptions/
     │   │
     │   ├── infra/
-    │   │   ├── notification.infra.module.ts
-    │   │   ├── prisma/
-    │   │   │   └── notification.repository.ts
-    │   │   │
     │   │   └── queue/
     │   │       ├── notification.producer.ts
     │   │       └── notification.consumer.ts
     │   │
-    │   ├── use-cases/
-    │   │   ├── list-notifications.case.ts
-    │   │   ├── mark-as-read.case.ts
-    │   │   ├── mark-all-as-read.case.ts
-    │   │   ├── send-notification.case.ts    # @OnEvent('task.assigned'), @OnEvent('comment.created'), ...
-    │   │   └── dto/
-    │   │       └── notification-filter.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── list-notifications.case.ts
+    │       ├── mark-as-read.case.ts
+    │       ├── mark-all-as-read.case.ts
+    │       ├── send-notification.case.ts    # @OnEvent('task.assigned'), @OnEvent('comment.created'), ...
+    │       └── dto/
+    │           └── notification-filter.dto.ts
     │
     ├── activity/
     │   ├── activity.module.ts
     │   ├── activity.ws.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts
     │   │   ├── di.tokens.ts
+    │   │   ├── activity.domain.module.ts
     │   │   ├── models/
     │   │   │   └── activity.ts
     │   │   ├── repositories/
     │   │   │   └── activity.repository.ts
     │   │   └── exceptions/
     │   │
-    │   ├── infra/
-    │   │   ├── activity.infra.module.ts
-    │   │   └── prisma/
-    │   │       └── activity.repository.ts
-    │   │
-    │   ├── use-cases/
-    │   │   ├── list-task-activity.case.ts
-    │   │   ├── record-activity.case.ts      # @OnEvent('task.*') — записывает изменения
-    │   │   └── dto/
-    │   │       └── activity-filter.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── list-task-activity.case.ts
+    │       ├── record-activity.case.ts      # @OnEvent('task.*') — записывает изменения
+    │       └── dto/
+    │           └── activity-filter.dto.ts
     │
     ├── attachment/
     │   ├── attachment.module.ts
     │   ├── attachment.http.controller.ts
     │   │
     │   ├── domain/
+    │   │   ├── index.ts
     │   │   ├── di.tokens.ts
+    │   │   ├── attachment.domain.module.ts
     │   │   ├── models/
     │   │   │   └── attachment.ts
     │   │   ├── repositories/
@@ -528,21 +504,15 @@ src/
     │   │       └── attachment-too-large.ts
     │   │
     │   ├── infra/
-    │   │   ├── attachment.infra.module.ts
-    │   │   ├── prisma/
-    │   │   │   └── attachment.repository.ts
-    │   │   │
     │   │   └── s3/
     │   │       └── s3.gateway.ts            # implements StorageGateway
     │   │
-    │   ├── use-cases/
-    │   │   ├── upload-attachment.case.ts
-    │   │   ├── delete-attachment.case.ts
-    │   │   ├── list-attachments.case.ts
-    │   │   └── dto/
-    │   │       └── upload-attachment.dto.ts
-    │   │
-    │   └── index.ts
+    │   └── use-cases/
+    │       ├── upload-attachment.case.ts
+    │       ├── delete-attachment.case.ts
+    │       ├── list-attachments.case.ts
+    │       └── dto/
+    │           └── upload-attachment.dto.ts
     │
     └── search/
         ├── search.module.ts
@@ -558,34 +528,47 @@ src/
 
 ### Слой `src/common/`
 
-**Идея:** код в `common/` группируется по **архитектурному слою** (domain → use-cases → infra → http), а не по технической роли в корне (`decorators/`, `filters/` рядом друг с другом). Так проще сопоставить общий код со слоями в `modules/*/`.
+**Идея:** код в `common/` группируется по назначению — исключения, декораторы, типы, фильтры, инфраструктура Prisma.
 
 **Куда класть артефакт:**
 
-| Артефакт | Слой | Папка |
-| --- | --- | --- |
-| Базовый класс доменного исключения | domain | `domain/exceptions/` |
-| Общие типы и generics (`New<T>`, `TransactionRunner`) | domain | `domain/types/` |
-| Общие DI-токены | domain | `domain/di.tokens.ts` |
-| Декораторы и утилиты для use case, прикладные исключения (не домен) | use-cases | `use-cases/` |
-| Prisma, контекст транзакций, обвязка БД | infra | `infra/prisma/` |
-| HTTP exception filters | http | `http/filters/` |
-| WS-специфичные фильтры/guards (когда появятся) | ws | `ws/filters/`, `ws/guards/` — по аналогии с `http/` |
+| Артефакт | Папка |
+| --- | --- |
+| Базовый класс доменного исключения | `exceptions/` |
+| Прикладные исключения (не домен) | `exceptions/` |
+| Общие типы и generics (`New<T>`, `Updatable<T>`, `TransactionRunner`) | `types/` |
+| Декораторы валидации DTO | `decorators/` |
+| Prisma, контекст транзакций, обвязка БД | `infra/prisma/` |
+| HTTP exception filters | `http/filters/` |
+| WS-специфичные фильтры/guards (когда появятся) | `ws/filters/`, `ws/guards/` — по аналогии с `http/` |
 
-Модульные доменные исключения (`EmailAlreadyExists`, `TaskNotFound` и т.д.) остаются в `modules/*/domain/exceptions/`, а не в `common/domain/`.
+Модульные доменные исключения (`EmailAlreadyExists`, `TaskNotFound` и т.д.) остаются в `core/*/domain/exceptions/`, а не в `common/`.
 
-**Импорты** (алиас `@common/*` в `tsconfig.json`):
+**Импорты** (алиасы в `tsconfig.json`):
+
+```json
+{
+  "@core/*":    ["src/core/*"],
+  "@common/*":  ["src/common/*"],
+  "@http/*":    ["src/http/*"],
+  "@ws/*":      ["src/ws/*"]
+}
+```
+
+Предпочтительные пути:
 
 | Назначение | Путь |
 | --- | --- |
-| Домен: исключения, типы, DI | `@common/domain` |
-| Декораторы валидации DTO, `DtoValidationFailed` | `@common/use-cases` |
-| `PrismaModule`, `PrismaDb`, транзакции | `@common/infra/prisma` |
+| Доменные исключения | `@common/exceptions` |
+| Прикладные исключения | `@common/exceptions` |
+| Декораторы валидации DTO | `@common/decorators` |
+| Общие типы | `@common/types` |
+| `PrismaModule`, `PrismaService`, транзакции | `@common/infra/prisma` |
 | HTTP filters | `@common/http/filters` |
 
 Предпочтительны импорты через barrel-файлы (`index.ts`), а не глубокие пути к отдельным файлам.
 
-**Антипаттерны:** папки только по «роли» в корне `common/`; файлы в корне `common/` без слоя; смешение доменных и прикладных исключений в одной папке; реэкспорт через `infra/*/index.ts` артефактов родительских слоёв; вынос в общий слой исключений, которые использует один модуль.
+**Антипаттерны:** файлы в корне `common/` без папки; смешение доменных и прикладных исключений в одной папке; реэкспорт через `infra/*/index.ts` артефактов родительских слоёв; вынос в общий слой исключений, которые использует один модуль.
 
 ## WebSocket архитектура
 
@@ -646,7 +629,7 @@ export class AppGateway {
 ### WS Controller — делегат в модуле
 
 ```typescript
-// modules/task/task.ws.controller.ts
+// core/task/task.ws.controller.ts
 @Injectable()
 export class TaskWsController {
   constructor(
@@ -711,7 +694,7 @@ member.removed    → notification, ws broadcast
 ### Подписчики
 
 ```typescript
-// modules/activity/use-cases/record-activity.case.ts
+// core/activity/use-cases/record-activity.case.ts
 @OnEvent('task.created')
 @OnEvent('task.updated')
 @OnEvent('task.completed')
@@ -721,7 +704,7 @@ async onTaskEvent(payload: TaskEventPayload) {
   await this.activityRepo.create({ ... });
 }
 
-// modules/notification/use-cases/send-notification.case.ts
+// core/notification/use-cases/send-notification.case.ts
 @OnEvent('task.assigned')
 async onTaskAssigned(payload: TaskAssignedPayload) {
   await this.notificationProducer.send({ ... });
@@ -741,7 +724,7 @@ Prisma-генерированные типы структурно совмест
 ### Модель
 
 ```typescript
-// modules/task/domain/models/task.ts
+// core/task/domain/models/task.ts
 export interface Task {
   id: string;
   parentTaskId: string | null;
@@ -765,7 +748,7 @@ export interface ProjectTask {
   position: number;
 }
 
-// modules/user/domain/models/user.ts
+// core/user/domain/models/user.ts
 export interface User {
   id: string;
   firstName: string;
@@ -785,7 +768,7 @@ export interface User {
 Если операция изменяет данные модели — она возвращает полную модель (`T`), а не частичный объект. Use case получает готовый результат и не собирает модель по частям.
 
 ```typescript
-// modules/task/domain/operations/task.operations.ts
+// core/task/domain/operations/task.operations.ts
 export function completeTask(task: Readonly<Task>): Task {
   if (task.status === 'completed') {
     throw new TaskAlreadyCompleted(task.id);
@@ -821,13 +804,12 @@ Prisma генерирует типы из `schema.prisma`. Доменные ин
 ### Use case — чистый от infra
 
 ```typescript
-// modules/task/use-cases/complete-task.case.ts
+// core/task/use-cases/complete-task.case.ts
 import type { Task } from '../domain/models/task';
 import { completeTask } from '../domain/operations/task.operations';
 
 export class CompleteTaskCase {
   constructor(
-    @Inject(TaskDomainDI.TaskRepository)
     private readonly taskRepo: TaskRepository,
     private readonly events: EventEmitter2,
   ) {}
@@ -852,66 +834,72 @@ export class CompleteTaskCase {
 
 ## Контракты (DIP)
 
-Интерфейсы лежат в `modules/*/domain/` — принадлежат потребителю.
-Реализации в `infra/prisma/` импортируют их через `import type`.
+Репозитории — **конкретные классы** в `core/*/domain/repositories/`. Инжектят `PrismaService` напрямую.
+`PrismaModule` — `@Global()`, доступен во всех модулях без явного импорта.
+DI-связывание — через `*.domain.module.ts`, который провайдит и экспортирует репозитории.
 
 ```typescript
-// modules/task/domain/repositories/task.repository.ts
-export interface TaskRepository {
-  findById(id: string): Promise<Task | null>;
-  findByProject(projectId: string, filter?: TaskFilter): Promise<Task[]>;
-  create(data: New<Task>): Promise<Task>;
-  update(id: string, data: Updatable<Task>): Promise<Task>;
-  remove(id: string): Promise<void>;
-}
-
-export interface ProjectTaskRepository {
-  findByProject(projectId: string): Promise<ProjectTask[]>;
-  findByTask(taskId: string): Promise<ProjectTask[]>;
-  addTaskToProject(data: ProjectTask): Promise<ProjectTask>;
-  removeTaskFromProject(projectId: string, taskId: string): Promise<void>;
-  updatePosition(projectId: string, taskId: string, sectionId: string | null, position: number): Promise<ProjectTask>;
-}
-
-// modules/task/infra/prisma/task.repository.ts
-import type { TaskRepository } from '../../../domain/repositories/task.repository';
+// core/user/domain/repositories/user.repository.ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@common/infra/prisma';
 
 @Injectable()
-export class TaskRepositoryImpl implements TaskRepository {
+export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<Task | null> {
-    return this.prisma.task.findUnique({ where: { id } });
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.db.user.findUnique({ where: { id } });
   }
 
-  async update(id: string, data: Updatable<Task>): Promise<Task> {
-    return this.prisma.task.update({ where: { id }, data });
+  async create(data: New<User>): Promise<User> {
+    return this.prisma.db.user.create({ data });
   }
-  // ...
+
+  async update(id: string, data: Updatable<User>): Promise<User> {
+    return this.prisma.db.user.update({ where: { id }, data });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.prisma.db.user.delete({ where: { id } });
+  }
 }
 ```
 
-Связывание в infra-модуле:
+```typescript
+// core/user/domain/user.domain.module.ts
+import { Module } from '@nestjs/common';
+import { UserRepository } from './repositories/user.repository';
+
+@Module({
+  providers: [UserRepository],
+  exports: [UserRepository],
+})
+export class UserDomainModule {}
+```
 
 ```typescript
-// modules/task/infra/task.infra.module.ts
+// core/user/user.module.ts — application-модуль, импортирует domain и провайдит use cases
+import { Module } from '@nestjs/common';
+import { UserDomainModule } from './domain/user.domain.module';
+import { GetUserCase } from './use-cases/get-user.case';
+
 @Module({
-  imports: [PrismaModule],
-  providers: [{ provide: TaskDomainDI.TaskRepository, useClass: TaskRepositoryImpl }],
-  exports: [TaskDomainDI.TaskRepository],
+  imports: [UserDomainModule],
+  providers: [GetUserCase],
+  exports: [GetUserCase, UserDomainModule],
 })
-export class TaskInfraModule {}
+export class UserModule {}
 ```
 
 ## Кросс-модульный доступ к данным
 
 ```typescript
-// modules/task/task.module.ts
+// core/task/task.module.ts
 @Module({
   imports: [
-    TaskInfraModule,                  // свой репозиторий
-    ProjectInfraModule,               // ProjectDI.SECTION_REPOSITORY для MoveTask
-    UserInfraModule,                  // UserDI.REPOSITORY для AssignTask
+    TaskDomainModule,                  // свой репозиторий
+    ProjectDomainModule,               // репозитории project/section
+    UserDomainModule,                  // UserRepository
   ],
   providers: [
     TaskWsController,
@@ -927,10 +915,10 @@ export class TaskModule {}
 
 ## Что МОЖНО и НЕЛЬЗЯ импортировать из другого модуля
 
-- МОЖНО: `domain/**` (интерфейсы моделей, операции, DI-токены, исключения) — через `import type` или barrel `index.ts`
-- МОЖНО: `infra/*.infra.module.ts` — для получения провайдеров через DI
+- МОЖНО: `domain/**` (интерфейсы моделей, DI-токены, исключения) — через barrel `index.ts`
+- МОЖНО: `*.module.ts` — для получения провайдеров через DI (репозитории реэкспортятся из domain-модуля)
 - НЕЛЬЗЯ: `use-cases/*.case.ts` — вместо этого EventEmitter
-- НЕЛЬЗЯ: `infra/prisma/**` — это реализации, зависимость только от интерфейсов в `domain/`
+- НЕЛЬЗЯ: детали реализации репозиториев напрямую — зависимость только через DI
 
 ## Порядок разработки (MVP)
 
@@ -948,6 +936,7 @@ export class TaskModule {}
 ## Прочие правила
 
 - Prisma — использовать миграции (`prisma migrate`)
+- `PrismaModule` — `@Global()`, доступен во всех модулях без явного импорта
 - Каждый модуль экспортирует контракты из domain/ через barrel `index.ts`
 - Fractional indexing для позиций задач и секций (drag-and-drop без пересчёта)
 - Оптимистичные обновления на фронте: клиент показывает изменение сразу, сервер подтверждает через WS
