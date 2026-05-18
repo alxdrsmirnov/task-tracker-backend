@@ -2,10 +2,10 @@
 
 ## Принципы
 
-- **Модульная архитектура**: каждый модуль содержит всё о себе — domain, infra, use cases, ws-контроллер
+- **Модульная архитектура**: каждый модуль (`core/{module}/`) содержит свой бизнес-код — domain, опционально infra (очереди/внешние интеграции) и use-cases. Транспортный слой (HTTP/WS-контроллеры) — top-level в `src/http/` и `src/ws/` и потребляет use-case'ы модуля через DI
 - **Доменные интерфейсы + операции**: модели — интерфейсы в `domain/models/`, бизнес-логика — чистые функции в `domain/operations/`. Prisma-генерированные типы структурно совместимы с доменными интерфейсами — маппинг не нужен. Use case работает только с абстракциями из `domain/`
 - **DIP**: репозитории — конкретные классы в `domain/repositories/`, инжектят `PrismaService` (глобальный). Связываются с DI через `*.domain.module.ts`. Модели — интерфейсы, репозитории — классы
-- **Full WebSocket**: один тонкий gateway-роутер, делегирует в ws-контроллер каждого модуля. REST — только auth и file upload
+- **Full WebSocket**: один gateway с namespace per workspace (`/workspace-{id}`) и auth на handshake, методы `@SubscribeMessage` делегируют в WS-контроллеры из `src/ws/controllers/`. REST — только auth и file upload
 - **Real-time**: изменения задач, комментарии, уведомления — всё через WebSocket
 
 ## Технологический стек
@@ -33,7 +33,8 @@
 - `common/` — кросс-модульный код; подробно — в разделе «Слой `src/common/`» ниже
 - Кросс-модульный доступ к данным: модуль импортирует `*.module.ts` другого модуля (репозитории доступны через реэкспорт из domain-модуля)
 - Кросс-модульные JOIN-ы в репозиториях запрещены. Каждый модуль работает только со своими таблицами: не использовать Prisma `include`/`select` с relations на таблицы другого модуля. Если use case нужны данные из двух модулей — он получает их отдельными вызовами через репозитории каждого модуля. Ссылки на сущности другого модуля хранятся как `id: string`, без Prisma relation
-- Gateway — тонкий роутер, не содержит логики, делегирует в ws-контроллер модулей
+- HTTP- и WS-контроллеры — top-level (`src/http/controllers/`, `src/ws/controllers/`), а НЕ внутри `core/{module}/`. Контроллер потребляет use-case'ы модуля через DI (импорт `{module}.module.ts`), но сам в модуле не живёт
+- Gateway содержит handshake-auth middleware (namespace per workspace, проверка `accessToken` + членства) и роутинг `@SubscribeMessage` в WS-контроллеры. Сами WS-контроллеры не содержат маршрутизации — только делегирование в use-case'ы и broadcast в комнаты
 
 ## Схема БД
 
@@ -49,7 +50,7 @@ user_credentials
 
 refresh_tokens
 ├── id (uuid), user_creds_id (-> user_credentials)
-├── token, expires_at
+├── value (unique), expires_at
 ├── created_at
 
 workspaces
@@ -155,7 +156,8 @@ erDiagram
     }
     refresh_tokens {
         uuid id PK
-        uuid user_credentials_id FK
+        uuid user_creds_id FK
+        varchar value UK
     }
     workspaces {
         uuid id PK
@@ -251,16 +253,28 @@ src/
 │       ├── index.ts                        # barrel: SystemFields, New, Updatable
 │       └── generics.ts                     # New<T>, Updatable<T>, SystemFields
 │
-├── http/                                   # HTTP-слой (REST)
+├── http/                                   # HTTP-слой (REST) — top-level, не внутри core/*
 │   ├── http.module.ts
-│   └── controllers/
-│       └── auth.controller.ts
+│   ├── controllers/
+│   │   └── auth.controller.ts
+│   └── filters/
+│       ├── index.ts
+│       ├── domain-exception.filter.ts
+│       └── dto-validation-failed.filter.ts
 │
-├── ws/                                     # WebSocket-слой
+├── ws/                                     # WebSocket-слой — top-level, не внутри core/*
 │   ├── web-socket.module.ts
-│   └── web-socket.gateway.ts               # тонкий WS роутер
+│   ├── web-socket.gateway.ts               # namespace per workspace + handshake auth + роутинг
+│   ├── controllers/                         # WS-контроллеры всех модулей, потребляют use-case'ы из core/*
+│   │   ├── index.ts
+│   │   └── user.ws.controller.ts
+│   ├── decorators/                          # @ConnectedMember, @ConnectedUser, ...
+│   │   ├── index.ts
+│   │   └── connected-member.ts
+│   └── types/
+│       └── index.ts                         # AuthorizedSocket
 │
-└── core/                                   # бизнес-модули
+└── core/                                   # бизнес-модули — только domain + use-cases
     │
     ├── auth/
     │   ├── auth.module.ts
@@ -354,9 +368,8 @@ src/
     │           ├── invite-member.dto.ts
     │           └── change-member-role.dto.ts
     │
-    ├── project/
+    ├── project/                            # WS-контроллер: src/ws/controllers/project.ws.controller.ts
     │   ├── project.module.ts
-    │   ├── project.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── index.ts
@@ -389,9 +402,8 @@ src/
     │           ├── update-section.dto.ts
     │           └── reorder-sections.dto.ts
     │
-    ├── task/
+    ├── task/                               # WS-контроллер: src/ws/controllers/task.ws.controller.ts
     │   ├── task.module.ts
-    │   ├── task.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── index.ts
@@ -438,9 +450,8 @@ src/
     │               ├── create-comment.dto.ts
     │               └── update-comment.dto.ts
     │
-    ├── notification/
+    ├── notification/                       # WS-контроллер: src/ws/controllers/notification.ws.controller.ts
     │   ├── notification.module.ts
-    │   ├── notification.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── index.ts
@@ -465,9 +476,8 @@ src/
     │       └── dto/
     │           └── notification-filter.dto.ts
     │
-    ├── activity/
+    ├── activity/                           # WS-контроллер: src/ws/controllers/activity.ws.controller.ts
     │   ├── activity.module.ts
-    │   ├── activity.ws.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── index.ts
@@ -485,9 +495,8 @@ src/
     │       └── dto/
     │           └── activity-filter.dto.ts
     │
-    ├── attachment/
+    ├── attachment/                         # HTTP-контроллер: src/http/controllers/attachment.controller.ts
     │   ├── attachment.module.ts
-    │   ├── attachment.http.controller.ts
     │   │
     │   ├── domain/
     │   │   ├── index.ts
@@ -514,9 +523,8 @@ src/
     │       └── dto/
     │           └── upload-attachment.dto.ts
     │
-    └── search/
+    └── search/                             # WS-контроллер: src/ws/controllers/search.ws.controller.ts
         ├── search.module.ts
-        ├── search.ws.controller.ts
         │
         ├── use-cases/
         │   ├── search-tasks.case.ts
@@ -539,8 +547,10 @@ src/
 | Общие типы и generics (`New<T>`, `Updatable<T>`, `TransactionRunner`) | `types/` |
 | Декораторы валидации DTO | `decorators/` |
 | Prisma, контекст транзакций, обвязка БД | `infra/prisma/` |
-| HTTP exception filters | `http/filters/` |
-| WS-специфичные фильтры/guards (когда появятся) | `ws/filters/`, `ws/guards/` — по аналогии с `http/` |
+| HTTP exception filters | `src/http/filters/` (top-level, не в `common/`) |
+| WS-специфичные типы (`AuthorizedSocket`) | `src/ws/types/` (top-level) |
+| WS-специфичные декораторы (`@ConnectedMember`) | `src/ws/decorators/` (top-level) |
+| WS-специфичные фильтры/guards (когда появятся) | `src/ws/filters/`, `src/ws/guards/` — по аналогии с `http/` |
 
 Модульные доменные исключения (`EmailAlreadyExists`, `TaskNotFound` и т.д.) остаются в `core/*/domain/exceptions/`, а не в `common/`.
 
@@ -564,7 +574,9 @@ src/
 | Декораторы валидации DTO | `@common/decorators` |
 | Общие типы | `@common/types` |
 | `PrismaModule`, `PrismaService`, транзакции | `@common/infra/prisma` |
-| HTTP filters | `@common/http/filters` |
+| HTTP filters | `@http/filters` |
+| `AuthorizedSocket` тип | `@ws/types` |
+| `@ConnectedMember` декоратор | `@ws/decorators` |
 
 Предпочтительны импорты через barrel-файлы (`index.ts`), а не глубокие пути к отдельным файлам.
 
@@ -572,107 +584,137 @@ src/
 
 ## WebSocket архитектура
 
-### Gateway — тонкий роутер
+### Принципиальная схема
+
+- **Namespace per workspace**: каждый workspace получает свой Socket.IO namespace `/workspace-{workspaceId}`. Клиент сразу подключается к нужному namespace — multi-tenant изоляция уровня соединения, без `WHERE workspaceId = ...` в каждом обработчике.
+- **Auth на handshake**: middleware на namespace читает `accessToken` из httpOnly cookie, валидирует через `GetMeCase`, затем через `GetMemberCase` проверяет, что пользователь — член этого workspace. Иначе соединение отклоняется (`Unauthorized`).
+- **Authorized context**: после успешного handshake в `socket.data` лежат `user: User` и `member: WorkspaceMember` (тип `AuthorizedSocket`). В обработчиках достаются параметр-декоратором `@ConnectedMember()`.
+- **Комнаты внутри namespace**: подписки на конкретные сущности (`project:{id}`, `task:{id}`) — это `socket.join(...)` уже внутри workspace-namespace. Глобальных `user:{id}` комнат не нужно — каждому подключению уже виден его `socket.data.user`.
+- **Gateway содержит auth-middleware и роутинг**: `@SubscribeMessage(...)` методы делегируют в WS-контроллеры из `src/ws/controllers/`. Сами WS-контроллеры — `@Injectable()`, инжектят use-case'ы из `core/*`.
+
+### Gateway — auth-middleware + роутер
 
 ```typescript
-// ws/web-socket.gateway.ts
-@WebSocketGateway({ cors: true })
-export class AppGateway {
+// src/ws/web-socket.gateway.ts
+@WsGateway({
+  namespace: /workspace-.+/, // регулярка: /workspace-{any}
+  cors: { origin: true, credentials: true }
+})
+export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   constructor(
-    private readonly taskWsController: TaskWsController,
-    private readonly notificationWsController: NotificationWsController,
-    private readonly projectWsController: ProjectWsController,
-    private readonly workspaceWsController: WorkspaceWsController,
+    private readonly getMeCase: GetMeCase,
+    private readonly getMemberCase: GetMemberCase,
+    private readonly userWsController: UserWsController,
   ) {}
 
-  // Подписка на проект (все участники получают обновления задач)
-  @SubscribeMessage('project:join')
-  joinProject(client: Socket, projectId: string) {
-    return this.projectWsController.join(client, projectId);
+  afterInit(server: Server) {
+    server.use((socket, next) => {
+      void (async () => {
+        try {
+          const cookies = parseCookie(socket.handshake.headers.cookie ?? '')
+          const accessToken = cookies['accessToken']
+          if (!accessToken) throw new Unauthorized()
+
+          const user = await this.getMeCase.execute({ accessToken })
+          const workspaceId = socket.nsp.name.replace('/workspace-', '')
+          const member = await this.getMemberCase.execute({ userId: user.id, workspaceId })
+
+          ;(socket.data as Record<string, unknown>).user = user
+          ;(socket.data as Record<string, unknown>).member = member
+          next()
+        } catch {
+          next(new Unauthorized())
+        }
+      })()
+    })
   }
 
-  @SubscribeMessage('project:leave')
-  leaveProject(client: Socket, projectId: string) {
-    return this.projectWsController.leave(client, projectId);
-  }
-
-  // Задачи
-  @SubscribeMessage('task:create')
-  createTask(client: Socket, data: CreateTaskDto) {
-    return this.taskWsController.create(client, data);
-  }
-
-  @SubscribeMessage('task:update')
-  updateTask(client: Socket, data: UpdateTaskDto) {
-    return this.taskWsController.update(client, data);
-  }
-
-  @SubscribeMessage('task:move')
-  moveTask(client: Socket, data: MoveTaskDto) {
-    return this.taskWsController.move(client, data);
-  }
-
-  // Комментарии
-  @SubscribeMessage('comment:create')
-  createComment(client: Socket, data: CreateCommentDto) {
-    return this.commentWsController.create(client, data);
-  }
-
-  // Уведомления
-  @SubscribeMessage('notification:mark-read')
-  markNotificationRead(client: Socket, data: MarkNotificationReadDto) {
-    return this.notificationWsController.markRead(client, data);
+  @SubscribeMessage('user:me')
+  handleUserMe(@ConnectedMember() member: WorkspaceMember): Promise<User> {
+    return this.userWsController.me(member.userId)
   }
 }
 ```
 
-### WS Controller — делегат в модуле
+### WS Controller — top-level, инжектит use-case'ы
+
+WS-контроллеры лежат в `src/ws/controllers/`, а не в `core/{module}/`. Module из `core/*` экспортирует use-case'ы, WS-контроллер их потребляет:
 
 ```typescript
-// core/task/task.ws.controller.ts
+// src/ws/controllers/user.ws.controller.ts
+@Injectable()
+export class UserWsController {
+  constructor(private readonly getUserCase: GetUserCase) {}
+
+  public async me(userId: string): Promise<User> {
+    return this.getUserCase.execute({ userId })
+  }
+}
+```
+
+Для модулей с broadcast (task, project, comment) контроллер сам отправляет события подписанным комнатам:
+
+```typescript
+// src/ws/controllers/task.ws.controller.ts (пример, ещё не реализован)
 @Injectable()
 export class TaskWsController {
   constructor(
-    private readonly createTask: CreateTask,
-    private readonly updateTask: UpdateTask,
-    private readonly moveTask: MoveTask,
+    private readonly createTaskCase: CreateTaskCase,
+    private readonly updateTaskCase: UpdateTaskCase,
   ) {}
 
-  async create(client: Socket, data: CreateTaskDto) {
-    const task = await this.createTask.execute(data, client.data.userId);
-    client.to(`project:${task.projectId}`).emit('task:created', task);
-    return task;
-  }
-
-  async update(client: Socket, data: UpdateTaskDto) {
-    const task = await this.updateTask.execute(data, client.data.userId);
-    client.to(`project:${task.projectId}`).emit('task:updated', task);
-    return task;
-  }
-
-  async move(client: Socket, data: MoveTaskDto) {
-    const task = await this.moveTask.execute(data, client.data.userId);
-    client.to(`project:${task.projectId}`).emit('task:moved', task);
-    return task;
+  public async create(socket: AuthorizedSocket, dto: CreateTaskDto): Promise<Task> {
+    const task = await this.createTaskCase.execute(dto, socket.data.user.id)
+    // комната внутри workspace-namespace
+    socket.nsp.to(`project:${dto.projectId}`).emit('task:created', task)
+    return task
   }
 }
 ```
 
-### WebSocket комнаты
+### Authorized context: типы и декораторы
 
-- `project:{projectId}` — все участники проекта, получают обновления задач и секций
-- `user:{userId}` — персональный канал для уведомлений
-- `task:{taskId}` — подписка на конкретную задачу (комментарии, activity)
+```typescript
+// src/ws/types/index.ts
+export type AuthorizedSocket = Socket<
+  DefaultEventsMap, DefaultEventsMap, DefaultEventsMap,
+  { user: User; member: WorkspaceMember }
+>
+
+// src/ws/decorators/connected-member.ts
+export const ConnectedMember = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): WorkspaceMember => {
+    const socket = ctx.switchToWs().getClient<AuthorizedSocket>()
+    return socket.data.member
+  }
+)
+```
+
+При появлении новых полей в `socket.data` — добавляются параллельные декораторы (`@ConnectedUser()`, и т.д.) в `src/ws/decorators/`.
+
+### Комнаты внутри workspace-namespace
+
+| Комната | Зачем | Кто подписывается |
+| --- | --- | --- |
+| `project:{projectId}` | Real-time обновления задач, секций | Все участники workspace, открывшие проект |
+| `task:{taskId}` | Комментарии, activity конкретной задачи | Открывшие задачу |
+
+Уведомления конкретному пользователю отправляются прицельно через `server.of('/workspace-{id}').to(socket.id)` или через broadcast по namespace с фильтрацией на клиенте — отдельные `user:{id}` комнаты не нужны, потому что workspace-namespace уже изолирует трафик от других тенантов, а в рамках одного workspace пользователь и так аутентифицирован.
 
 ### Real-time поток событий
 
 ```text
-User Action → WS Gateway → WS Controller → Use Case → Repository (save)
-                                              ↓
-                                        EventEmitter
-                                       ↙     ↓      ↘
-                              Activity    Notification   WS Broadcast
-                              Service     Queue          (to room)
+Client → /workspace-{id} (handshake auth)
+       → @SubscribeMessage('task:create')
+       → WebSocketGateway (routing)
+       → TaskWsController (src/ws/controllers/)
+       → CreateTaskCase (core/task/use-cases/)
+       → TaskRepository (save)
+              ↓
+         EventEmitter ('task.created')
+       ↙          ↓                ↘
+  Activity     Notification     WS Broadcast
+  (record)     (queue → push)   (socket.nsp.to('project:{id}'))
 ```
 
 ## Межмодульное общение — события
@@ -893,6 +935,8 @@ export class UserModule {}
 
 ## Кросс-модульный доступ к данным
 
+Application-модуль `core/{module}/{module}.module.ts` импортирует чужие `*DomainModule` ради репозиториев и регистрирует только use-case'ы. WS-контроллер живёт отдельно в `src/ws/controllers/` и потребляет use-case'ы через `WebSocketModule`:
+
 ```typescript
 // core/task/task.module.ts
 @Module({
@@ -902,15 +946,29 @@ export class UserModule {}
     UserDomainModule,                  // UserRepository
   ],
   providers: [
-    TaskWsController,
-    CreateTask, UpdateTask, DeleteTask,
-    GetTask, ListTasks, CompleteTask,
-    ReopenTask, AssignTask, MoveTask,
-    CreateSubtask,
+    CreateTaskCase, UpdateTaskCase, DeleteTaskCase,
+    GetTaskCase, ListTasksCase, CompleteTaskCase,
+    ReopenTaskCase, AssignTaskCase, MoveTaskCase,
+    CreateSubtaskCase,
   ],
-  exports: [TaskWsController],       // для Gateway
+  exports: [
+    CreateTaskCase, UpdateTaskCase, DeleteTaskCase,
+    GetTaskCase, ListTasksCase, CompleteTaskCase,
+    ReopenTaskCase, AssignTaskCase, MoveTaskCase,
+    CreateSubtaskCase,
+    TaskDomainModule,                  // реэкспорт для других модулей
+  ],
 })
 export class TaskModule {}
+```
+
+```typescript
+// src/ws/web-socket.module.ts
+@Module({
+  imports: [AuthModule, UserModule, WorkspaceModule, TaskModule /* ... */],
+  providers: [WebSocketGateway, UserWsController, TaskWsController /* ... */],
+})
+export class WebSocketModule {}
 ```
 
 ## Что МОЖНО и НЕЛЬЗЯ импортировать из другого модуля
@@ -922,16 +980,18 @@ export class TaskModule {}
 
 ## Порядок разработки (MVP)
 
-1. auth — регистрация, логин, JWT (REST)
-2. WebSocket (ws/) — gateway + JWT auth на handshake
-3. user — профиль (WS)
-4. workspace — создание, участники, роли (WS)
-5. project + sections — CRUD, структура (WS)
-6. task — CRUD, статусы, назначение, перемещение, подзадачи, комментарии (WS)
-7. activity — лента изменений (event-driven + WS чтение)
-8. notification — in-app + WS push (через BullMQ)
-9. file — загрузка вложений к задачам (REST)
-10. search — полнотекстовый поиск по задачам (WS)
+Статусы: `✅` — готово, `🟡` — частично, `⬜` — не начато.
+
+1. ✅ **auth** — регистрация, логин, JWT (REST + httpOnly cookie). Все 5 use-case'ов готовы
+2. ✅ **WebSocket** — gateway, namespace per workspace, JWT auth на handshake через cookie, проверка членства, `@ConnectedMember`
+3. 🟡 **user** — есть `GetUserCase` + WS `user:me`. Не хватает: `UpdateUserCase`, `UploadAvatarCase`
+4. 🟡 **workspace** — есть `GetMemberCase` (используется handshake-ом). Не хватает: `CreateWorkspace`, `UpdateWorkspace`, `DeleteWorkspace`, `ListMyWorkspaces`, `InviteMember`, `RemoveMember`, `ChangeMemberRole`, `ListMembers`
+5. ⬜ **project + sections** — CRUD, fractional indexing секций (WS)
+6. ⬜ **task** — CRUD, статусы, назначение, перемещение, подзадачи, комментарии (WS)
+7. ⬜ **activity** — лента изменений (event-driven подписчик + WS чтение)
+8. ⬜ **notification** — in-app + WS push (через BullMQ + Redis)
+9. ⬜ **file** — загрузка вложений к задачам (REST + S3/MinIO)
+10. ⬜ **search** — полнотекстовый поиск по задачам (WS)
 
 ## Прочие правила
 
