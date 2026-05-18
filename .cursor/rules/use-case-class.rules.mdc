@@ -2,6 +2,7 @@
 description: Structure and contract of use case classes — .case.ts extension, execute(), DTO + @ValidateDto(), throw patterns, transactions.
 globs: src/core/*/use-cases/**
 ---
+
 # Use Case Class
 
 ## Cheat Sheet
@@ -51,14 +52,11 @@ export class SignUp {
     return this.userRepository.create({ email: dto.email, name: dto.name })
   }
 
-  private async createCredentials(
-    user: User,
-    password: string,
-  ): Promise<void> {
+  private async createCredentials(user: User, password: string): Promise<void> {
     const hash = await this.passwordHasher.hash(password)
     await this.credentialsRepository.create({
       userId: user.id,
-      passwordHash: hash,
+      passwordHash: hash
     })
   }
 }
@@ -106,8 +104,8 @@ private throwUserNotFound(userId: number): never {
 Forbidden:
 
 ```ts
-if (!member) return     // FORBIDDEN — silent return
-if (!ids) return         // FORBIDDEN
+if (!member) return // FORBIDDEN — silent return
+if (!ids) return // FORBIDDEN
 ```
 
 `T | null` acceptable only when `null` drives a meaningful business branch with

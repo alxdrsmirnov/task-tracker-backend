@@ -9,13 +9,13 @@ import {
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server } from 'socket.io'
-import { Unauthorized } from '@modules/auth/domain'
-import { GetMeCase } from '@modules/auth/use-cases/get-me.case'
-import { GetMemberCase } from '@modules/workspace/use-cases/get-member.case'
+import { Unauthorized } from '@core/auth/domain'
+import { GetMeCase } from '@core/auth/use-cases/get-me.case'
+import { GetMemberCase } from '@core/workspace/use-cases/get-member.case'
 import { UserWsController } from './controllers'
 import { ConnectedMember } from './decorators'
-import type { User } from '@modules/user/domain'
-import type { WorkspaceMember } from '@modules/workspace/domain'
+import type { User } from '@core/user/domain'
+import type { WorkspaceMember } from '@core/workspace/domain'
 import type { AuthorizedSocket } from './types'
 
 @WsGateway({

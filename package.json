@@ -89,7 +89,7 @@
     ],
     "rootDir": "src",
     "moduleNameMapper": {
-      "^@modules/(.*)$": "<rootDir>/modules/$1",
+      "^@core/(.*)$": "<rootDir>/core/$1",
       "^@common/(.*)$": "<rootDir>/common/$1",
       "^@http/(.*)$": "<rootDir>/http/$1",
       "^@ws/(.*)$": "<rootDir>/ws/$1"

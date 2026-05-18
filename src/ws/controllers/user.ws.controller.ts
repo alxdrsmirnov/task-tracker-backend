@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { GetUserCase } from '@modules/user/use-cases'
-import type { User } from '@modules/user/domain'
+import { GetUserCase } from '@core/user/use-cases'
+import type { User } from '@core/user/domain'
 
 @Injectable()
 export class UserWsController {

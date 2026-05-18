@@ -2,6 +2,7 @@
 description: Structure of `src/common/` — where shared code belongs. Import paths, barrel exports, DomainException, Prisma infra.
 globs: src/common/**
 ---
+
 # Common Structure
 
 `src/common/` — shared (cross-module) primitives only.
@@ -26,16 +27,16 @@ src/
 
 ## Classification Table
 
-| Artifact | Folder |
-| --- | --- |
-| Base exceptions (DomainException, DtoFailed) | `common/exceptions/` |
-| Shared type, enum, generic | `common/types/` |
-| Pure helper, no I/O | `common/utils/` |
-| Reusable `class-validator` helper | `common/validators/` |
-| Cross-cutting method decorator | `common/decorators/` |
-| Prisma infra (module, models, migrations, txn) | `common/infra/prisma/` |
-| HTTP controller / filter / guard / pipe | `src/http/` (TOP-LEVEL) |
-| Module domain exceptions | `core/{m}/domain/exceptions/` |
+| Artifact                                       | Folder                        |
+| ---------------------------------------------- | ----------------------------- |
+| Base exceptions (DomainException, DtoFailed)   | `common/exceptions/`          |
+| Shared type, enum, generic                     | `common/types/`               |
+| Pure helper, no I/O                            | `common/utils/`               |
+| Reusable `class-validator` helper              | `common/validators/`          |
+| Cross-cutting method decorator                 | `common/decorators/`          |
+| Prisma infra (module, models, migrations, txn) | `common/infra/prisma/`        |
+| HTTP controller / filter / guard / pipe        | `src/http/` (TOP-LEVEL)       |
+| Module domain exceptions                       | `core/{m}/domain/exceptions/` |
 
 ## Rules
 
@@ -47,13 +48,13 @@ src/
 
 ## Import Paths (always via barrel)
 
-| What | Path |
-| --- | --- |
-| Types, enums, generics | `@common/types` |
-| `DomainException`, `DtoFailed` | `@common/exceptions` |
-| Pure helpers | `@common/utils` |
-| `ValidateDto` | `@common/decorators` |
-| `IsNullable` | `@common/validators` |
+| What                                  | Path                   |
+| ------------------------------------- | ---------------------- |
+| Types, enums, generics                | `@common/types`        |
+| `DomainException`, `DtoFailed`        | `@common/exceptions`   |
+| Pure helpers                          | `@common/utils`        |
+| `ValidateDto`                         | `@common/decorators`   |
+| `IsNullable`                          | `@common/validators`   |
 | Prisma module / service / transaction | `@common/infra/prisma` |
 
 Good: `import { PrismaService } from '@common/infra/prisma'`  
@@ -70,10 +71,7 @@ export abstract class DomainException extends Error {
     cause?: Error
     metadata?: Record<string, unknown>
   }) {
-    super(
-      params.message,
-      params.cause ? { cause: params.cause } : undefined,
-    )
+    super(params.message, params.cause ? { cause: params.cause } : undefined)
     this.code = params.code
     this.metadata = params.metadata
   }

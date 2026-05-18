@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common'
 import { ValidateDto } from '@common/decorators'
-import { MemberRepository } from '../domain/repositories/member.repository'
-import { Unauthorized } from '@modules/auth/domain'
+import { Unauthorized } from '@core/auth/domain'
 import { GetMemberDto } from './dto/get-member.dto'
+import { MemberRepository } from '../domain/repositories/member.repository'
 import type { WorkspaceMember } from '../domain/models/workspace-member'
 
 @Injectable()

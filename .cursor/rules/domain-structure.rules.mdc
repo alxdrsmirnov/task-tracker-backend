@@ -2,6 +2,7 @@
 description: Structure of `src/core/{module}/domain/` — models, repositories, exceptions, domain module wiring, public API.
 globs: src/core/*/domain/**
 ---
+
 # Module Domain Structure
 
 ## Target Shape
@@ -23,17 +24,17 @@ Minimum: `index.ts` + `{module}.domain.module.ts` + `models/{entity}.ts`.
 
 ## Classification Table
 
-| Artifact | Folder | Example |
-| --- | --- | --- |
-| Business entity | `models/` | `user.ts` → `interface User` |
-| Supporting type / enum | `types/` | `user.types.ts` |
-| Persistence class | `repositories/` | `user.repository.ts` |
-| External API class | `gateways/` | `amo-auth.gateway.ts` |
-| In-process capability | `tools/` | `password-hasher.ts` |
-| Domain error | `exceptions/` | `user-not-found.ts` → `class UserNotFound` |
-| Use case | `src/core/{m}/use-cases/` | `sign-up.case.ts` |
-| HTTP controller / filter | `src/http/` | — |
-| Prisma model | `src/common/infra/prisma/models/` | `user.prisma` |
+| Artifact                 | Folder                            | Example                                    |
+| ------------------------ | --------------------------------- | ------------------------------------------ |
+| Business entity          | `models/`                         | `user.ts` → `interface User`               |
+| Supporting type / enum   | `types/`                          | `user.types.ts`                            |
+| Persistence class        | `repositories/`                   | `user.repository.ts`                       |
+| External API class       | `gateways/`                       | `amo-auth.gateway.ts`                      |
+| In-process capability    | `tools/`                          | `password-hasher.ts`                       |
+| Domain error             | `exceptions/`                     | `user-not-found.ts` → `class UserNotFound` |
+| Use case                 | `src/core/{m}/use-cases/`         | `sign-up.case.ts`                          |
+| HTTP controller / filter | `src/http/`                       | —                                          |
+| Prisma model             | `src/common/infra/prisma/models/` | `user.prisma`                              |
 
 ## models/
 
@@ -70,7 +71,9 @@ export class UserRepository {
     return this.toDomain(updated)
   }
 
-  private toDomain(row: User): User { return row }
+  private toDomain(row: User): User {
+    return row
+  }
 }
 ```
 
