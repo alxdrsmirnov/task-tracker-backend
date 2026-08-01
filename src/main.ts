@@ -1,7 +1,6 @@
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { DomainExceptionFilter, DtoValidationFailedFilter } from '@http/filters'
 import cookieParser from 'cookie-parser'
 
 async function bootstrap() {
@@ -12,9 +11,6 @@ async function bootstrap() {
   const isDev = nodeEnv === 'development'
 
   app.setGlobalPrefix('api')
-  app.useGlobalFilters(new DomainExceptionFilter())
-  app.useGlobalFilters(new DtoValidationFailedFilter())
-
   app.use(cookieParser())
 
   app.enableCors({

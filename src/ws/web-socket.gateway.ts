@@ -1,91 +1,14 @@
-import { Logger } from '@nestjs/common'
-import {
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  OnGatewayInit,
-  SubscribeMessage,
-  WebSocketGateway as WsGateway,
-  WebSocketServer
-} from '@nestjs/websockets'
-import { parse as parseCookie } from 'cookie'
-import { Server } from 'socket.io'
-import { Unauthorized } from '@core/auth/domain'
-import { GetMeCase } from '@core/auth/use-cases/get-me.case'
-import { GetMemberCase } from '@core/workspace/use-cases/get-member.case'
-import { UserWsController } from './controllers'
-import { ConnectedMember } from './decorators'
-import type { User } from '@core/user/domain'
-import type { WorkspaceMember } from '@core/workspace/domain'
-import type { AuthorizedSocket } from './types'
+import { OnGatewayInit, WebSocketGateway as WsGateway } from '@nestjs/websockets'
+import type { Server } from 'socket.io'
 
 @WsGateway({
   namespace: /workspace-.+/, // Регулярка для workspace namespaces: workspace-abc123
   cors: { origin: true, credentials: true }
 })
-export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  constructor(
-    private readonly getMeCase: GetMeCase,
-    private readonly getMemberCase: GetMemberCase,
-    private readonly userWsController: UserWsController
-  ) {}
-
-  private readonly logger = new Logger(WebSocketGateway.name)
-
-  @WebSocketServer()
-  readonly server: Server
-
-  afterInit(server: Server) {
-    server.use((socket, next) => {
-      void (async () => {
-        try {
-          // Достаём accessToken из cookies
-          const cookieHeader = socket.handshake.headers.cookie
-          const cookies = parseCookie(cookieHeader ?? '')
-
-          const accessToken = cookies['accessToken'] as string
-          if (!accessToken) {
-            throw new Unauthorized()
-          }
-
-          // Получаем пользователя по токену
-          const user = await this.getMeCase.execute({ accessToken })
-
-          // Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
-          const namespaceName = socket.nsp.name
-          const workspaceId = namespaceName.replace('/workspace-', '')
-          if (!workspaceId) {
-            throw new Unauthorized()
-          }
-
-          // Проверяем, что пользователь — член этого workspace
-          const workspaceMember = await this.getMemberCase.execute({
-            userId: user.id,
-            workspaceId
-          })
-
-          // Сохраняем данные в socket для дальнейшего использования
-          ;(socket.data as Record<string, unknown>).user = user
-          ;(socket.data as Record<string, unknown>).member = workspaceMember
-          next()
-        } catch {
-          next(new Unauthorized())
-        }
-      })()
+export class WebSocketGateway implements OnGatewayInit {
+  afterInit(server: Server): void {
+    server.use((_socket, next) => {
+      next(new Error('WebSocket transport is not implemented'))
     })
-  }
-
-  handleConnection(socket: AuthorizedSocket) {
-    this.logger.log(`Socket connected: ${socket.id}`)
-    this.logger.log(`Member: `, socket.data.member)
-  }
-
-  handleDisconnect(socket: AuthorizedSocket) {
-    this.logger.log(`Socket disconnected: ${socket.id}`)
-  }
-
-  /** ========== USER MESSAGES ========== */
-  @SubscribeMessage('user:me')
-  async handleUserMe(@ConnectedMember() member: WorkspaceMember): Promise<User> {
-    return this.userWsController.me(member.userId)
   }
 }

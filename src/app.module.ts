@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ClsModule } from 'nestjs-cls'
-import { PrismaModule } from '@common/infra/prisma'
+import { PrismaModule } from '@infra/prisma'
 import { HttpModule } from '@http/http.module'
 import { WebSocketModule } from '@ws/web-socket.module'
 

@@ -9,8 +9,7 @@
     "outDir": "./dist", // Папка для скомпилированных файлов
     "baseUrl": "./", // Базовая директория для путей
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@common/*": ["src/common/*"],
+      "@infra/*": ["src/infra/*"],
       "@http/*": ["src/http/*"],
       "@ws/*": ["src/ws/*"]
     },

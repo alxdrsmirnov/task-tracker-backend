@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Layer"
+  short_description: "Use cases и application orchestration"
+  default_prompt: "Используй $app-layer для реализации use case в src/app."

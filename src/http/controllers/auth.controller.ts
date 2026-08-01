@@ -1,79 +1,29 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { GetMeCase } from '@core/auth/use-cases/get-me.case'
-import { RefreshTokensCase } from '@core/auth/use-cases/refresh-tokens.case'
-import { LogoutCase } from '@core/auth/use-cases/logout.case'
-import { SignInCase } from '@core/auth/use-cases/sign-in.case'
-import { SignUpCase } from '@core/auth/use-cases/sign-up.case'
-import { SignInDto } from '@core/auth/use-cases/dto/sign-in.dto'
-import { SignUpDto } from '@core/auth/use-cases/dto/sign-up.dto'
-import type { CookieOptions, Request, Response } from 'express'
-import type { User } from '@core/user/domain'
-import type { UserTokens } from '@core/auth/domain'
+import { Controller, Get, NotImplementedException, Post } from '@nestjs/common'
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly config: ConfigService,
-    private readonly signUpCase: SignUpCase,
-    private readonly signInCase: SignInCase,
-    private readonly refreshCase: RefreshTokensCase,
-    private readonly logoutCase: LogoutCase,
-    private readonly getMeCase: GetMeCase
-  ) {
-    const isProd = this.config.getOrThrow<string>('NODE_ENV') === 'production'
-    const maxAge = +this.config.getOrThrow<string>('TOKENS_COOKIE_MAX_AGE')
-
-    this.cookieOptions = {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge
-    }
-  }
-
   @Get('me')
-  async me(@Req() req: Request): Promise<User> {
-    const accessToken = String(req.cookies['accessToken'] ?? '')
-    return this.getMeCase.execute({ accessToken })
+  me(): never {
+    throw new NotImplementedException('Auth is not implemented')
   }
 
   @Post('sign-up')
-  async signUp(@Body() body: SignUpDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.signUpCase.execute(body)
-    this.setTokensCookie(res, tokens)
+  signUp(): never {
+    throw new NotImplementedException('Auth is not implemented')
   }
 
   @Post('sign-in')
-  async signIn(@Body() body: SignInDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.signInCase.execute(body)
-    this.setTokensCookie(res, tokens)
+  signIn(): never {
+    throw new NotImplementedException('Auth is not implemented')
   }
 
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = String(req.cookies['refreshToken'] ?? '')
-    const tokens = await this.refreshCase.execute({ refreshToken })
-    this.setTokensCookie(res, tokens)
+  refresh(): never {
+    throw new NotImplementedException('Auth is not implemented')
   }
 
   @Post('logout')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = String(req.cookies['refreshToken'] ?? '')
-    await this.logoutCase.execute({ refreshToken })
-    this.clearTokensCookies(res)
-  }
-
-  private readonly cookieOptions: CookieOptions
-
-  private setTokensCookie(res: Response, tokens: UserTokens) {
-    res.cookie('accessToken', tokens.accessToken, this.cookieOptions)
-    res.cookie('refreshToken', tokens.refreshToken, this.cookieOptions)
-  }
-
-  private clearTokensCookies(res: Response) {
-    res.clearCookie('accessToken', this.cookieOptions)
-    res.clearCookie('refreshToken', this.cookieOptions)
+  logout(): never {
+    throw new NotImplementedException('Auth is not implemented')
   }
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transport Layer"
+  short_description: "Входящие HTTP и WebSocket adapters"
+  default_prompt: "Используй $transport-layer для реализации входящего HTTP или WebSocket adapter."

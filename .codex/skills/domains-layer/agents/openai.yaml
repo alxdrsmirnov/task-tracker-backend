@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domains Layer"
+  short_description: "Доменные модели, repositories и gateways"
+  default_prompt: "Используй $domains-layer для проектирования кода в src/domains."

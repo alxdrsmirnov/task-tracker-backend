@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Readability"
+  short_description: "Проверка читаемости TypeScript и NestJS"
+  default_prompt: "Используй $code-readability для проверки читаемости изменённого TypeScript-кода."
