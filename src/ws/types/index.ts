@@ -1,5 +1,5 @@
-import type { User } from '@modules/user'
-import type { WorkspaceMember } from '@modules/workspace'
+import type { User } from '@core/user/domain'
+import type { WorkspaceMember } from '@core/workspace/domain'
 import type { DefaultEventsMap, Socket } from 'socket.io'
 
 export type AuthorizedSocket = Socket<

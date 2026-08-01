@@ -7,13 +7,23 @@ alwaysApply: true
 
 ## Answers & Explanations
 
-- Quality is more important than speed — think carefully before answering or writing code.
+- Quality is more important than speed — think carefully before answering or
+  writing code!
 - Never give abstract or superficial answers.
 - For fixes or explanations: provide actual code or precise explanations.
 - Anticipate solutions the user might not have thought of.
 - Consider new technologies and contrarian ideas when they bring clear benefit.
-- When introducing new ideas or technologies: explain the essence, then clarify whether to continue.
-- Act as an expert software engineer, especially in Node.js, NestJS, OOP and TypeScript.
+- When introducing new ideas or technologies: explain the essence, then clarify
+  whether to continue.
+- Act as an expert software engineer, especially in Node.js, NestJS, OOP and
+  TypeScript.
+
+## Creating New Files
+
+- Before creating a new file, read at least one similar existing file in the same
+  layer to understand the pattern (e.g., read an existing use case before
+  creating a new one; read an existing repository before creating a new one).
+- This ensures you follow the project's structure rules and naming conventions.
 
 ## Code Quality
 
@@ -28,11 +38,12 @@ alwaysApply: true
 
 - Never use the `any` type.
 - Use type casts (`as T`) only with explicit user permission.
-- Put types and interfaces in separate files; do not mix types with implementation.
+- Put types and interfaces in separate files; do not mix types with implementation!
 - Place the constructor at the very beginning of the class, when one is needed.
 - Follow formatting conventions (project ESLint/Prettier config).
 
 ## Documentation
 
 - Do not create documentation files unless explicitly requested.
-- Code is the source of truth — never write or refactor code based on `docs/` content. Documentation may be outdated; always rely on the actual codebase.
+- Code is the source of truth — never write or refactor code based on `docs/`
+  content. Documentation may be outdated; always rely on the actual codebase.

@@ -1,21 +1,21 @@
 import { Logger } from '@nestjs/common'
-import { SubscribeMessage } from '@nestjs/websockets'
-import { Unauthorized } from '@modules/auth'
-import { GetMeCase } from '@modules/auth/use-cases'
-import { GetMemberCase } from '@modules/workspace/use-cases'
-import { UserWsController } from '@modules/user/user.ws.controller'
-import { ConnectedMember } from './decorators'
-import type { WorkspaceMember } from '@modules/workspace'
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
   WebSocketGateway as WsGateway,
-  WebSocketServer,
-  OnGatewayInit
+  WebSocketServer
 } from '@nestjs/websockets'
 import { parse as parseCookie } from 'cookie'
 import { Server } from 'socket.io'
-import { User } from '@modules/user'
+import { Unauthorized } from '@core/auth/domain'
+import { GetMeCase } from '@core/auth/use-cases/get-me.case'
+import { GetMemberCase } from '@core/workspace/use-cases/get-member.case'
+import { UserWsController } from './controllers'
+import { ConnectedMember } from './decorators'
+import type { User } from '@core/user/domain'
+import type { WorkspaceMember } from '@core/workspace/domain'
 import type { AuthorizedSocket } from './types'
 
 @WsGateway({
@@ -26,7 +26,7 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   constructor(
     private readonly getMeCase: GetMeCase,
     private readonly getMemberCase: GetMemberCase,
-    private readonly UserWsController: UserWsController
+    private readonly userWsController: UserWsController
   ) {}
 
   private readonly logger = new Logger(WebSocketGateway.name)
@@ -38,7 +38,7 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
     server.use((socket, next) => {
       void (async () => {
         try {
-          // 1. Достаём accessToken из cookies
+          // Достаём accessToken из cookies
           const cookieHeader = socket.handshake.headers.cookie
           const cookies = parseCookie(cookieHeader ?? '')
 
@@ -47,23 +47,23 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
             throw new Unauthorized()
           }
 
-          // 2. Получаем пользователя по токену
+          // Получаем пользователя по токену
           const user = await this.getMeCase.execute({ accessToken })
 
-          // 3. Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
+          // Извлекаем workspaceId из namespace (например, "/workspace-abc123" → "abc123")
           const namespaceName = socket.nsp.name
           const workspaceId = namespaceName.replace('/workspace-', '')
           if (!workspaceId) {
             throw new Unauthorized()
           }
 
-          // 4. Проверяем, что пользователь — член этого workspace
+          // Проверяем, что пользователь — член этого workspace
           const workspaceMember = await this.getMemberCase.execute({
             userId: user.id,
             workspaceId
           })
 
-          // 5. Сохраняем данные в socket для дальнейшего использования
+          // Сохраняем данные в socket для дальнейшего использования
           ;(socket.data as Record<string, unknown>).user = user
           ;(socket.data as Record<string, unknown>).member = workspaceMember
           next()
@@ -86,6 +86,6 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   /** ========== USER MESSAGES ========== */
   @SubscribeMessage('user:me')
   async handleUserMe(@ConnectedMember() member: WorkspaceMember): Promise<User> {
-    return this.UserWsController.me(member.userId)
+    return this.userWsController.me(member.userId)
   }
 }

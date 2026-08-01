@@ -7,7 +7,6 @@
       "name": "Attach to NestJS",
       "port": 9229,
       "restart": true,
-      "stopOnEntry": false,
       "skipFiles": ["<node_internals>/**"]
     },
     {
@@ -30,7 +29,6 @@
       "args": ["--runInBand", "--no-cache"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "disableOptimisticBPs": true,
       "skipFiles": ["<node_internals>/**"]
     }
   ]
