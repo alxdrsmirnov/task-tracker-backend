@@ -1,4 +1,0 @@
-interface:
-  display_name: "Infra Layer"
-  short_description: "Prisma и общие технические providers"
-  default_prompt: "Используй $infra-layer для изменений общей инфраструктуры в src/infra."

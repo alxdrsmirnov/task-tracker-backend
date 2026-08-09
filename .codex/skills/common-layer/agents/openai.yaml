@@ -1,4 +1,0 @@
-interface:
-  display_name: "Common Layer"
-  short_description: "Shared kernel без I/O и бизнес-логики"
-  default_prompt: "Используй $common-layer для проектирования shared kernel в src/common."
