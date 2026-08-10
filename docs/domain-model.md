@@ -10,6 +10,24 @@
 
 Домен продукта — координация совместной работы внутри компании. Пользователи создают задачи, назначают ответственных, организуют одну и ту же работу в разных проектах, обсуждают её и получают персональные уведомления о значимых изменениях. Задача остаётся единым рабочим объектом независимо от количества проектов, а каждый проект предоставляет собственный способ группировки и представления этой задачи. Главная ценность продукта — дать компании единое пространство для видимости работы, ответственности и гибкой организации процессов разных отделов.
 
+### Жизненные роли в домене
+
+- **Постановщики работы** — превращают намерения в единицы работы: менеджеры, тимлиды, коллеги-заказчики. Им важно поручить и не потерять.
+- **Исполнители** — делают работу. Им важно видеть свою работу и понимать, что делать следующим (в Asana: My Tasks и принцип DRI — один прямо ответственный).
+- **Наблюдатели и координаторы** — руководство, смежные команды. Им нужно видеть: на каком этапе, кто отвечает, где застряло.
+- **Организация как структура** — неявный участник: у отделов свои устоявшиеся процессы, и инструмент обязан их уважать.
+
+Один человек обычно совмещает несколько ролей. Роли жизненные, а не системные: из них рождаются сценарии, а не наоборот.
+
+### Боль, которую снимает продукт
+
+- **Невидимость.** Состояние работы узнаётся только расспросом; компания платит статус-встречами.
+- **Размытая ответственность.** Задача в чате не имеет владельца и срока — «мы же обсуждали!», и никто не сделал.
+- **Потеря контекста.** Обсуждение работы живёт в мессенджере, оторванное от самой работы.
+- **Конфликт процессов отделов.** Разработка работает по колонкам, маркетинг — по календарю; жёсткий инструмент ломает процессы, набор разных инструментов размывает картину.
+
+Боль — критерий проверки проектных решений: вопросы границ и связей решаются тем, что из боли ломается при каждом варианте.
+
 ## Граница домена
 
 ### Входит в текущую предметную область
@@ -24,7 +42,8 @@
 - проектные поля (локальные для проекта) и их значения на задачах;
 - проектные роли и доступ к рабочим объектам;
 - ответственные и участники задач;
-- комментарии и упоминания;
+- комментарии, упоминания и лайки;
+- лента активности рабочих объектов (system stories);
 - персональный Inbox и уведомления.
 
 ### Пока не моделируется подробно
@@ -38,13 +57,12 @@
 - аналитика и отчётность;
 - тактическая модель Trash, восстановления и архивирования;
 - email- и push-доставка уведомлений;
-- подзадачи, зависимости между задачами, теги, лайки;
+- подзадачи, зависимости между задачами, теги;
 - глобальная библиотека полей уровня Workspace;
 - гости как класс участников Workspace;
 - персональные секции и triage в My Tasks;
 - assigned-task elevation (повышение прав assignee независимо от проектной роли);
-- сценарий request access к приватной задаче;
-- история активности задачи (system stories).
+- сценарий request access к приватной задаче.
 
 Anti-scope (сознательно не моделируем даже в будущем, пока не появится реальный сценарий): настраиваемые кастомные роли, перенос задач и проектов между Workspace как move-операция.
 
@@ -117,6 +135,15 @@ WorkspaceMember ≠ ProjectMember ≠ TaskParticipant ≠ InboxRecipient
 
 Правила слияния — см. раздел «Закрытые вопросы», п. 4. Недоступный пользователю Project не раскрывается в деталях Task. Standalone Task по умолчанию приватна и доступна создателю, assignee и участникам. `My Tasks` является представлением, а не владельцем Task.
 
+### Эталон: как устроен доступ в Asana
+
+Справочно, для итераций рабочих контекстов. Доступ в Asana — слоёная матрёшка из четырёх уровней:
+
+1. **Организация/Workspace:** роли super admin / admin / member / guest; guest видит только явно расшаренное.
+2. **Team:** проект организации принадлежит ровно одной команде; члены команды получают доступ к team-видимым проектам с уровнем доступа по умолчанию (`default_access_level`), не становясь явными участниками проекта.
+3. **Project:** фиксированные роли admin / editor / commenter / viewer; видимость: приватный / для команды / для всей организации.
+4. **Task:** collaborator — слитое понятие (прямой доступ + подписка на обновления); автопопадание: создатель, assignee, комментатор, упомянутый. Доступ к задаче = объединение источников, берётся максимум (viewer в одном проекте + editor в другом = editor на задаче). Приватная задача без проектов — только collaborators. Assigned-task elevation: assignee получает повышенные права независимо от проектной роли (у нас отложено).
+
 ### Уведомления не управляют работой
 
 `Notification` реагирует на уже произошедшие события. Ошибка формирования Inbox не должна отменять создание комментария, назначение ответственного или закрытие Task.
@@ -140,30 +167,32 @@ WorkspaceMember ≠ ProjectMember ≠ TaskParticipant ≠ InboxRecipient
 | Глобальный lifecycle задачи, независимый от проектов | **Core**, как следствие multi-homing; сам по себе open/closed тривиален |
 | Участие в задаче, связка комментарий/упоминание → участие | Supporting, но тесно вплетено в core-операции |
 | Эффективный multi-source доступ | Supporting: сложен и специфичен, но это enabling-механика, не видимая ценность |
-| Комментарии и упоминания | Supporting: индустриальный стандарт |
+| Комментарии, упоминания, лайки, лента активности | Supporting: индустриальный стандарт, но с собственным состоянием и инвариантами → отдельный субдомен Collaboration |
 | Inbox, группировка историй | Supporting: заменяемо готовым notification-center |
 | Workspace, команды, членство | Supporting: необходимо для B2B-сценария, но не отличает продукт |
 | Аккаунты, credentials, сессии | Generic: полностью outsourceable (Keycloak/Auth0) |
 
-Ключевой вывод: **core-поддомена два, а не один** — «работа» (Task-сторона) и «организация работы» (Project-сторона). Они дифференцируют продукт по разным осям и меняются по разным причинам.
+Вердикт «Supporting» у возможностей «участие» и «доступ» читается как «не дифференциатор», а не «отдельный supporting-субдомен»: эти механики неотделимы от задач и проектов (нет собственного состояния и инвариантов вне их) и живут внутри core-поддомена. Обратное тоже верно: не каждая возможность внутри core обязана сама быть дифференциатором — CRUD задач тоже есть у всех трекеров; дифференцируют конкретные механики (multi-homing, проектная кастомизация). «Обсуждения» же выделены в отдельный субдомен не из-за размера, а потому что у этой проблемной области есть собственное состояние (комментарии, лайки, записи активности) и собственные инварианты (см. «Карта поддомен»).
+
+Ключевой вывод: **core-поддомен один** — «координация работы». Строки, помеченные Core в таблице выше, — не отдельные оси дифференциации, а грани одной: Asana выигрывает у простых трекеров не задачами отдельно и не проектами отдельно, а тем, как задачи и проекты работают вместе. Разрез на Work Execution и Work Organization — технический (solution space: границы агрегатов, траектории изменений, конкурентная нагрузка), а не стратегический, поэтому один core-поддомен реализуется двумя bounded contexts. Несколько core-поддоменов в одном продукте — красный флаг недожатой дистилляции: если всё core, то ничто не core. (Первоначальная формулировка «два core» была именно этой ошибкой — разрез solution space был принят за классификацию problem space.)
 
 ### Карта поддомен
 
-| Поддомен | Классификация | Назначение | Ответственность |
-| --- | --- | --- | --- |
-| Identity | Generic | Установить личность пользователя | Account, credentials, sessions, authentication |
-| Workspace | Supporting | Описать рабочее пространство компании | Workspace, участники, команды, workspace/team-роли |
-| Work Execution | **Core** | Вести работу над задачей как единым объектом | Task, глобальный lifecycle, Assignee, TaskParticipation, Comment, Mention |
-| Work Organization | **Core** | Организовать работу в настраиваемые проекты | Project, Section, TaskPlacement, поля и их значения, ProjectMembership, проектный доступ |
-| Notification | Supporting | Управлять вниманием пользователя | Inbox, группировка событий, состояния и настройки уведомлений |
+| Поддомен | Классификация | Назначение | Ответственность | Реализация (BC) |
+| --- | --- | --- | --- | --- |
+| Координация работы | **Core (единственный)** | Дать компании единое пространство видимости работы, ответственности и гибкой организации процессов | Task и глобальный lifecycle; Assignee, TaskParticipation; Project, Section, TaskPlacement; поля и их значения; ProjectMembership, проектный доступ | Два BC: Work Execution + Work Organization |
+| Collaboration | Supporting | Дать работе обсуждение, реакции и хронику произошедшего | Comment, Mention, Like; лента активности (system stories) | BC Collaboration |
+| Workspace | Supporting | Описать рабочее пространство компании | Workspace, участники, команды, workspace/team-роли | BC Workspace |
+| Notification | Supporting | Управлять вниманием пользователя | Inbox, группировка событий, состояния и настройки уведомлений | BC Notification |
+| Identity | Generic | Установить личность пользователя | Account, credentials, sessions, authentication | BC Identity |
 
-`Collaboration` не является отдельным поддоменом: у комментариев нет собственных инвариантов, не связанных с задачей — вся их доменная логика (кто может комментировать; комментарий/упоминание → участие) является инвариантами вокруг Task. Триггер выделения Collaboration в собственный BC зафиксирован заранее: появление у обсуждений собственного состояния и правил (модерация, треды, реакции, история редактирования) или второго потребителя комментариев (комментарии к проектам).
+`Collaboration` — отдельный supporting-субдомен. Основание выделения — не размер и не богатство набора функций, а отдельность проблемной области: у неё собственное состояние (комментарии, лайки, записи ленты активности) и собственные инварианты (один пользователь — один лайк на объект; запись активности идемпотентна по идентификатору исходного события; комментарий создаётся только при положительном вердикте доступа). Лента активности и Inbox — две разные модели, читающие одни и те же события: лента — разделяемая хроника объекта (Collaboration), Inbox — персональное состояние «прочитал/отложил» (Notification).
 
 Отдельный Access Control BC не выделяется: доступ вычисляется stateless-политиками внутри рабочих контекстов. Триггер выделения: настраиваемые политики доступа, временный доступ, аудит share-событий.
 
 ## Ограниченные контексты
 
-Каждый поддомен выровнен с одним bounded context — рабочее соответствие, а не универсальное правило.
+Поддомены (problem space) и bounded contexts (solution space) — разные пространства; соответствие между ними не обязано быть 1:1, но каждое отклонение должно быть обосновано. Наша карта: пять поддоменов, шесть BC. Единственное отклонение — core-поддомен «Координация работы» реализуется двумя BC (Work Execution, Work Organization) по причинам solution space: границы агрегатов, траектории изменений, конкурентная нагрузка. Остальные поддомены выровнены с BC один к одному.
 
 ### Identity BC
 
@@ -191,29 +220,47 @@ WorkspaceMember ≠ ProjectMember ≠ TaskParticipant ≠ InboxRecipient
 
 Назначение — вести задачу как единый глобальный рабочий объект и всё, что происходит вокруг её исполнения.
 
-Владеет: Task и её глобальным lifecycle (`open/closed`, Trash на уровне продукта); Assignee; TaskParticipation (источники участия и подписка); Comment и Mention; политикой обеспечения участия; `TaskAccessPolicy` (совместно с фактами из Work Organization); представлением My Tasks.
+Владеет: Task и её глобальным lifecycle (`open/closed`, Trash на уровне продукта); Assignee; TaskParticipation (источники участия и подписка); политикой обеспечения участия; `TaskAccessPolicy` (совместно с фактами из Work Organization); представлением My Tasks.
 
-Не владеет: Project, Section, TaskPlacement; определениями и значениями полей; ProjectMembership; составом Workspace и Team как источником истины; Inbox-состоянием пользователя.
+Не владеет: Project, Section, TaskPlacement; определениями и значениями полей; ProjectMembership; составом Workspace и Team как источником истины; Comment, Mention, лайками и лентой активности; Inbox-состоянием пользователя.
 
 Использует от Workspace: идентификаторы и активность участников.
 
 Использует от Work Organization: факты о размещениях и проектном членстве задачи (для вычисления эффективного доступа; форма интеграции — проекция или фасад — уточняется в итерации).
 
-Публикует: `TaskId` и lifecycle-события Task; события участия; события Comment и Mention.
+Использует от Collaboration: `CommentAdded`, `UserMentioned` — политика обеспечения участия (eventual consistency, см. «Закрытые вопросы», п. 3).
+
+Публикует: `TaskId` и lifecycle-события Task (потребители: Work Organization, Collaboration — включая каскад по `TaskDeleted`); события участия. Предоставляет Collaboration вердикт `TaskAccessPolicy` (форма — фасад или проекция — уточняется в итерации).
 
 ### Work Organization BC
 
 Назначение — организовывать задачи в настраиваемые проекты: структура, представление, проектный процесс и проектный доступ.
 
-Владеет: Project и Section; TaskPlacement (секция и позиция); ProjectFieldDefinition и FieldOption (поля локальны для проекта); TaskFieldValue (значения полей на задачах); ProjectMembership и ProjectRole; `ProjectAccessPolicy`; архивированием Project.
+Владеет: Project и Section; принадлежностью Project одной Team (`Project.teamId`, обязательна в company-Workspace, отсутствует в персональном — как в Asana, где команды есть только в организациях); видимостью Project (`private | team | workspace`) и уровнем доступа по умолчанию; TaskPlacement (секция и позиция); ProjectFieldDefinition и FieldOption (поля локальны для проекта); TaskFieldValue (значения полей на задачах); ProjectMembership и ProjectRole; `ProjectAccessPolicy`; архивированием Project.
 
 Не владеет: самой Task и её глобальными свойствами; TaskParticipation; Comment; Workspace-составом.
 
 Использует от Work Execution: `TaskId` и lifecycle-события (`TaskDeleted` → очистка размещений и значений; `TaskClosed/Reopened` → отображение).
 
-Использует от Workspace: идентификаторы участников, факты активности membership.
+Использует от Workspace: идентификаторы участников, факты активности membership, факты членства в Team (для доступа к team-видимым проектам).
 
-Публикует: события размещений, секций, полей и значений; события проектного членства.
+Публикует: события размещений, секций, полей и значений (потребители: Work Execution, Notification, Collaboration — лента активности); события проектного членства.
+
+### Collaboration BC
+
+Назначение — давать работе обсуждение, реакции и хронику произошедшего: комментарии, упоминания, лайки, лента активности.
+
+Владеет: Comment и Mention; Like; лентой активности рабочих объектов (system stories); каскадной очисткой обсуждений и ленты по `TaskDeleted`.
+
+Не владеет: Task и её lifecycle; TaskParticipation; правами доступа к рабочим объектам (вердикт запрашивается у `TaskAccessPolicy` в Work Execution); Inbox.
+
+Использует от Work Execution: `TaskId`, lifecycle-события Task; вердикт доступа на комментирование.
+
+Использует от Work Organization: события размещений и полей — материал ленты активности.
+
+Использует от Workspace: идентификаторы и активность участников.
+
+Публикует: `CommentAdded`, `UserMentioned`, `LikeAdded`/`LikeRemoved`, `ActivityEntryRecorded` — потребители: Work Execution (политика участия), Notification (Inbox).
 
 ### Notification BC
 
@@ -223,7 +270,7 @@ WorkspaceMember ≠ ProjectMember ≠ TaskParticipant ≠ InboxRecipient
 
 Не владеет: Task и Project; Comment; TaskParticipation как источником истины; правами доступа к рабочим объектам.
 
-Использует от рабочих контекстов: события работы, участия и обсуждений; идентификаторы источника и инициатора; достаточные сведения о получателях (список подписанных участников передаётся в событии или запрашивается фасадом — уточняется в итерации).
+Использует от рабочих контекстов: события работы и участия (Work Execution, Work Organization), события обсуждений и реакций (Collaboration); идентификаторы источника и инициатора; достаточные сведения о получателях (список подписанных участников передаётся в событии или запрашивается фасадом — уточняется в итерации).
 
 Notification не вызывает обратные изменения в рабочие контексты.
 
@@ -236,17 +283,26 @@ flowchart TB
     subgraph DOMAIN["Домен: координация совместной работы компании"]
         IDENTITY["Identity<br/>Аккаунты и сессии"]:::generic
         WORKSPACE["Workspace<br/>Пространство, участники, команды"]:::supporting
-        EXECUTION["Work Execution<br/>Задача, участие, обсуждения"]:::core
-        ORGANIZATION["Work Organization<br/>Проекты, размещения, поля"]:::core
         NOTIFICATION["Notification<br/>Inbox и уведомления"]:::supporting
+        COLLABORATION["Collaboration<br/>Комментарии, лайки, лента активности"]:::supporting
+
+        subgraph CORE["Core-поддомен: Координация работы (один поддомен, два BC)"]
+            EXECUTION["Work Execution<br/>Задача, lifecycle, участие"]:::core
+            ORGANIZATION["Work Organization<br/>Проекты, размещения, поля"]:::core
+        end
 
         IDENTITY -->|"AccountId, состояние Account"| WORKSPACE
         WORKSPACE -->|"WorkspaceMemberId, TeamId, события членства"| EXECUTION
         WORKSPACE -->|"WorkspaceMemberId, TeamId, события членства"| ORGANIZATION
+        WORKSPACE -->|"WorkspaceMemberId, активность участников"| COLLABORATION
         EXECUTION -->|"TaskId, lifecycle-события Task"| ORGANIZATION
         ORGANIZATION -->|"Факты размещений и проектного членства"| EXECUTION
-        EXECUTION -->|"События Task, участия, обсуждений"| NOTIFICATION
+        EXECUTION -->|"TaskId, lifecycle, вердикт доступа"| COLLABORATION
+        ORGANIZATION -->|"События размещений и полей"| COLLABORATION
+        COLLABORATION -->|"CommentAdded, UserMentioned"| EXECUTION
+        EXECUTION -->|"События Task, участия"| NOTIFICATION
         ORGANIZATION -->|"События размещений и полей"| NOTIFICATION
+        COLLABORATION -->|"События обсуждений и реакций"| NOTIFICATION
     end
 
     classDef core fill:#ffd79a,stroke:#b56813,stroke-width:3px,color:#111
@@ -255,14 +311,14 @@ flowchart TB
     style DOMAIN fill:#fffdf7,stroke:#333,stroke-width:3px
 ```
 
-Особенность карты: между двумя core-контекстами есть потоки в обе стороны (partnership). Work Execution публикует `TaskId` и lifecycle-события; Work Organization предоставляет факты размещений и проектного членства для `TaskAccessPolicy`. Предпочтительная форма обоих потоков — события и локальные проекции, а не синхронные вызовы; точное решение фиксируется в детальных итерациях.
+Особенность карты: между двумя BC core-поддомена есть потоки в обе стороны (partnership). Work Execution публикует `TaskId` и lifecycle-события; Work Organization предоставляет факты размещений и проектного членства для `TaskAccessPolicy`. Предпочтительная форма обоих потоков — события и локальные проекции, а не синхронные вызовы; точное решение фиксируется в детальных итерациях. Вторая двусторонняя связка — Work Execution ⇄ Collaboration: Execution предоставляет `TaskId`, lifecycle-события и вердикт доступа на комментирование, Collaboration публикует события обсуждений, на которые Execution отвечает политикой участия.
 
 ### Identity → Workspace
 
 - Identity является upstream; Workspace использует стабильный `AccountId` и состояние Account.
 - Identity ничего не знает о Workspace.
 
-### Workspace → Work Execution / Work Organization
+### Workspace → Work Execution / Work Organization / Collaboration
 
 - Workspace является upstream для организационного членства.
 - Рабочие контексты используют `WorkspaceMemberId`, `TeamId` и состояние membership; рабочие права вычисляются внутри них.
@@ -274,9 +330,16 @@ flowchart TB
 - Work Organization владеет размещениями и проектным членством и предоставляет их факты для вычисления эффективного доступа к Task.
 - Ни один не хранит состояние другого как источник истины.
 
-### Рабочие контексты → Notification
+### Work Execution ⇄ Collaboration
 
-- Рабочие контексты публикуют произошедшие бизнес-факты; Notification создаёт собственную модель Inbox.
+- Work Execution предоставляет `TaskId`, lifecycle-события (включая `TaskDeleted` → каскадная очистка обсуждения и ленты задачи) и вердикт `TaskAccessPolicy` на комментирование.
+- Collaboration публикует `CommentAdded` / `UserMentioned`; Work Execution реагирует политикой обеспечения участия.
+- Ни один не хранит состояние другого как источник истины; связка eventual consistent.
+
+### Рабочие контексты и Collaboration → Notification
+
+- Рабочие контексты и Collaboration публикуют произошедшие бизнес-факты; Notification создаёт собственную модель Inbox.
+- Лента активности (Collaboration) и Inbox (Notification) — две разные модели, читающие одни и те же события: лента — разделяемая хроника объекта, Inbox — персональное состояние получателя.
 - Требуется eventual consistency: сбой Notification не откатывает событие работы.
 
 ## Единый язык
@@ -288,7 +351,7 @@ flowchart TB
 | `WorkspaceMembership` | Связь Account с Workspace | Содержит состояние участия и workspace-level роль |
 | `WorkspaceMember` | Человек в роли участника конкретного Workspace | Не копия Account |
 | `Team` | Отдел или команда внутри Workspace | Не Project |
-| `TeamMembership` | Связь WorkspaceMember с Team | Не даёт проектных прав автоматически (см. «Расхождения с Asana») |
+| `TeamMembership` | Связь WorkspaceMember с Team | Факт членства используется Work Organization: проект с видимостью `team` открыт членам команды-владельца (как в Asana) |
 | `Task` | Единый глобальный рабочий объект | Не копируется при добавлении в Project |
 | `CompletionState` | Глобальное состояние Task: `open` или `closed` | Не проектный Status и не секция |
 | `Assignee` | Пользователь, ответственный за Task | Назначение обычно делает пользователя TaskParticipant, но это отдельные факты |
@@ -302,8 +365,10 @@ flowchart TB
 | `ProjectRole` | Набор разрешённых действий в Project | `admin`, `editor`, `commenter`, `viewer` (фиксированы) |
 | `TaskParticipation` | Связь WorkspaceMember с Task | Даёт прямой доступ и подписку; содержит источники и флаг `subscribed` |
 | `ParticipationSource` | Причина появления TaskParticipation | `creator`, `assignee`, `explicit`, `commenter`, `mentioned` |
-| `Comment` | Сообщение в обсуждении Task | Не изменяет Task автоматически, кроме отдельно определённых политик |
+| `Comment` | Сообщение в обсуждении Task | Принадлежит Collaboration; не изменяет Task автоматически, кроме отдельно определённых политик |
 | `Mention` | Упоминание пользователя в Comment | Value Object внутри Comment |
+| `Like` | Реакция пользователя на Comment или Task | Один пользователь — один лайк на объект |
+| `ActivityEntry` | Запись ленты активности рабочего объекта | Разделяемая хроника объекта; не путать с персональной `InboxStory` |
 | `InboxStory` | Сгруппированная персональная история уведомлений | Архивирование InboxStory не архивирует Task |
 | `NotificationOccurrence` | Одно событие внутри InboxStory | Например, комментарий или переоткрытие Task |
 
@@ -333,7 +398,7 @@ flowchart LR
 
 ### Создание Task сразу в Project
 
-С точки зрения бизнеса это два факта: `TaskCreated` и `TaskAddedToProject`. UI может показывать одну форму, но модель не смешивает существование Task и её Placement. Технически два факта координируются одной пользовательской операцией; форма координации между двумя core-контекстами уточняется в итерациях.
+С точки зрения бизнеса это два факта: `TaskCreated` и `TaskAddedToProject`. UI может показывать одну форму, но модель не смешивает существование Task и её Placement. Технически два факта координируются одной пользовательской операцией; форма координации между двумя BC core-поддомена уточняется в итерациях.
 
 ### Добавление существующей Task в другой Project
 
@@ -357,12 +422,12 @@ flowchart LR
 
 ### Комментарий и упоминание
 
-1. Проверяется право пользователя комментировать Task (через `TaskAccessPolicy`, независимо от участия).
-2. Создаётся Comment.
-3. Автор идемпотентно становится TaskParticipant (`source: commenter`).
-4. Упомянутые пользователи идемпотентно становятся TaskParticipants (`source: mentioned`).
-5. Публикуются `CommentAdded` и `UserMentioned`.
-6. Notification создаёт Inbox Stories подписанным участникам, исключая инициатора.
+1. Collaboration запрашивает вердикт `TaskAccessPolicy` (Work Execution): может ли пользователь комментировать Task (независимо от участия).
+2. Создаётся Comment; извлекаются упоминания.
+3. Публикуются `CommentAdded` и `UserMentioned`.
+4. Work Execution реагирует политикой участия: автор идемпотентно становится TaskParticipant (`source: commenter`), упомянутые — (`source: mentioned`). Eventual consistency между BC допустима (см. «Закрытые вопросы», п. 3).
+5. Notification создаёт Inbox Stories подписанным участникам, исключая инициатора.
+6. Комментарий появляется в ленте активности задачи (та же модель Collaboration).
 
 ### Выход из участников Task и отписка
 
@@ -405,11 +470,11 @@ flowchart LR
 
 ### Work Execution
 
-- Aggregate Roots: `Task` (глобальные свойства, assignee, CompletionState согласованно), `TaskParticipation` (уникальна для пары Task–WorkspaceMember; источники и `subscribed` согласованны и идемпотентны), `Comment` (независимое создание; Mention — VO внутри).
-- Value Objects: `TaskId`, `TaskTitle`, `TaskDescription`, `CompletionState`, `DueDate`, `TaskVisibility`, `ParticipationSource`, `CommentText`, `Mention`.
+- Aggregate Roots: `Task` (глобальные свойства, assignee, CompletionState согласованно), `TaskParticipation` (уникальна для пары Task–WorkspaceMember; источники и `subscribed` согласованны и идемпотентны).
+- Value Objects: `TaskId`, `TaskTitle`, `TaskDescription`, `CompletionState`, `DueDate`, `TaskVisibility`, `ParticipationSource`.
 - Domain Policies: `TaskAccessPolicy` (stateless; MAX-merge источников); `TaskParticipationPolicy` (какие действия обеспечивают участие).
-- Domain Events: `TaskCreated`, `TaskAssigned`, `TaskClosed`, `TaskReopened`, `TaskDeleted`, `TaskParticipantAdded`, `TaskParticipantLeft`, `TaskParticipantUnsubscribed`, `CommentAdded`, `UserMentioned`.
-- Инварианты-кандидаты: Task не копируется при добавлении в Project; CompletionState не зависит от секций и полей; повторный источник участия не создаёт дубликат; Comment создаётся только пользователем с соответствующей capability; `Task.workspaceId` обязателен и неизменен.
+- Domain Events: `TaskCreated`, `TaskAssigned`, `TaskClosed`, `TaskReopened`, `TaskDeleted`, `TaskParticipantAdded`, `TaskParticipantLeft`, `TaskParticipantUnsubscribed`.
+- Инварианты-кандидаты: Task не копируется при добавлении в Project; CompletionState не зависит от секций и полей; повторный источник участия не создаёт дубликат; `Task.workspaceId` обязателен и неизменен.
 
 ### Work Organization
 
@@ -418,6 +483,13 @@ flowchart LR
 - Domain Policies: `ProjectAccessPolicy`; политика дефолтной Section при создании Placement.
 - Domain Events: `ProjectCreated`, `ProjectArchived`, `ProjectUnarchived`, `TaskAddedToProject`, `TaskRemovedFromProject`, `TaskMovedToSection`, `ProjectFieldValueChanged`, `ProjectMemberAdded`, `ProjectMemberRoleChanged`.
 - Инварианты-кандидаты: пара Task–Project имеет не более одного активного Placement; Section размещения принадлежит его Project; поле принадлежит ровно одному Project; значение соответствует типу и опциям поля; `Project.workspaceId` обязателен и неизменен; Placement допустим только в Project того же Workspace, что и Task.
+
+### Collaboration
+
+- Aggregate Roots: `Comment` (Mention — VO внутри), `Like`, `ActivityEntry`.
+- Value Objects: `CommentId`, `CommentText`, `Mention`, `LikeId`, `ActivityEntryId`, `ActivitySourceRef`.
+- Domain Events: `CommentAdded`, `CommentDeleted`, `UserMentioned`, `LikeAdded`, `LikeRemoved`, `ActivityEntryRecorded`.
+- Инварианты-кандидаты: один пользователь — один лайк на объект; запись активности идемпотентна по id исходного события; комментарий создаётся только при положительном вердикте `TaskAccessPolicy`; `TaskDeleted` запускает каскадную очистку обсуждения и ленты задачи (eventual consistency).
 
 ### Notification
 
@@ -432,10 +504,11 @@ flowchart LR
 
 1. **Принадлежность к Workspace.** Task и Project принадлежат ровно одному Workspace; `workspaceId` обязателен и неизменен; перенос не моделируется (в Asana — только копирование). Персональный Workspace по умолчанию закрывает индивидуальное использование.
 2. **Природа TaskParticipation.** Один агрегат: набор `ParticipationSource` + флаг `subscribed`. Участие даёт прямой доступ; подписка — атрибут участия. Отписка не отбирает доступ; полный выход удаляет источники. Отдельная модель subscription не нужна.
-3. **Атомарность Comment + Participation.** Не строгая транзакция между агрегатами. Comment и Participation живут в одном BC (Work Execution); обеспечение участия — идемпотентная реакция политики на `CommentAdded`. Асимметрия последствий (comment без participation хуже, чем participation без comment) допускает eventual consistency внутри этой связки.
+3. **Атомарность Comment + Participation.** Не строгая транзакция между агрегатами и контекстами. Comment живёт в Collaboration, Participation — в Work Execution; обеспечение участия — идемпотентная реакция политики Work Execution на интеграционные события `CommentAdded`/`UserMentioned`. Асимметрия последствий (comment без participation хуже, чем participation без comment) допускает eventual consistency на этой связке.
 4. **Эффективный доступ к Task.** MAX-merge capabilities по источникам (ни один источник не ослабляет другой); task-level capabilities (`view`, `comment`, `editGlobal`) берутся максимумом; структурные действия (секции, поля проекта) — строго per-placement по роли в этом Project; недоступные Projects скрываются полностью (ни id, ни названия, ни счётчика); нет доступа = 404, а не 403; деактивированный WorkspaceMember теряет доступ, даже оставаясь participant.
 5. **Роли.** Все роли фиксированы: Workspace — `owner` (единственный, передаваемый), `admin`, `member`; Team — `team_admin`, `member`; Project — `admin`, `editor`, `commenter`, `viewer` (семантика Asana). Роли — Value Objects (enum). Кастомные роли — anti-scope.
-6. **Выделение Collaboration и Access Control.** Не выделяются; триггеры зафиксированы в разделе «Карта поддомен».
+6. **Выделение Collaboration и Access Control.** Collaboration — отдельный supporting-субдомен с собственным BC: основание не размер, а отдельность проблемной области (обсуждения, реакции, хроника работы) с собственным состоянием и инвариантами; состав — комментарии, упоминания, лайки, лента активности. Access Control не выделяется ни в субдомен, ни в BC: доступ вычисляется stateless-политиками внутри рабочих контекстов; триггер выделения — настраиваемые политики, временный доступ, аудит share-событий.
+7. **Один core-поддомен.** Первоначальная классификация «два core» (Work Execution и Work Organization) смешивала разрез solution space с классификацией problem space: дифференциация продукта одна — координация работы (Asana отличается не задачами и не проектами по отдельности, а их совместной работой). Core-поддомен «Координация работы» реализуется двумя BC; их разделение — техническое (границы агрегатов, траектории изменений, конкурентная нагрузка) и остаётся в силе.
 
 ## Отложенные вопросы
 
@@ -447,9 +520,9 @@ flowchart LR
 - должен ли workspace admin иметь доступ к любой приватной задаче (в Asana — нет; предварительно: нет);
 - передача `owner` в Workspace и поведение при его деактивации;
 - семантика полного выхода последнего участника с доступом к приватной standalone-задаче;
-- форма интеграции Execution ⇄ Organization (проекции vs фасад) и получателей уведомлений для Notification;
+- форма интеграции между рабочими контекстами, Collaboration и Notification (проекции vs фасад; список получателей уведомлений — в событии или через фасад);
 - тактическая модель Trash и восстановления;
-- история активности задачи (system stories) и её слияние с комментариями;
+- детальная модель Collaboration: единый поток комментариев и system stories (как в Asana) или раздельные; лайки на комментарии и/или задачи — решается в итерации Collaboration;
 - глобальная библиотека полей: модель значений `(taskId, fieldId)` к ней готова — глобальное поле автоматически получит разделяемое между проектами значение.
 
 ## Расхождения с реальной Asana
@@ -459,15 +532,15 @@ flowchart LR
 | Тема | Asana | Наше решение | Статус |
 | --- | --- | --- | --- |
 | Библиотека полей | Поля глобальные на workspace или локальные | Только локальные поля проекта; библиотека отложена | Отклонение, задел в модели значений есть |
-| Team → доступ к проектам | Членство в team даёт доступ к team-проектам | TeamMembership сам по себе проектных прав не даёт | Отклонение, пересмотр в итерации Workspace |
+| Team → доступ к проектам | Проект принадлежит одной team; члены команды получают доступ к team-видимым проектам с уровнем по умолчанию | Как в Asana: `Project.teamId` + видимость `private/team/workspace`; правило живёт в Work Organization | Совпадение |
 | My Tasks | Строго назначенные мне + персональные секции/triage | Представление назначенных/доступных задач | Отложено |
 | Assigned-task elevation | Assignee получает повышенные права | Не моделируется | Отложено |
 | Гости | Отдельный класс membership | Не моделируется | Отложено |
 | Request access | Встроенный сценарий запроса доступа | Не моделируется | Отложено |
-| Activity feed | Комментарии и system stories — один поток | Только комментарии | Отложено |
+| Activity feed | Комментарии и system stories — один поток | Лента активности в охвате (Collaboration); единый поток или раздельные — решается в итерации Collaboration | В охвате, тактика открыта |
 | Trash | Поиск по «Deleted items», восстановление любым видящим | Отдельный Trash, 30 дней | Совпадает по сроку; тактика отложена |
 
-Подтверждённые совпадения с Asana: жёсткая принадлежность одному workspace без переноса; multi-homing без копий; значения полей на задаче по id поля; секция как per-project workflow; collaborator = доступ + подписка в одном понятии; автодобавление в участники (creator/assignee/commenter/mentioned); MAX-merge прав при multi-homing; роли admin/editor/commenter/viewer; приватность standalone-задач; исключение инициатора из Inbox; независимость архивации Inbox и Project; 30 дней восстановления.
+Подтверждённые совпадения с Asana: жёсткая принадлежность одному workspace без переноса; multi-homing без копий; значения полей на задаче по id поля; секция как per-project workflow; collaborator = доступ + подписка в одном понятии; автодобавление в участники (creator/assignee/commenter/mentioned); MAX-merge прав при multi-homing; роли admin/editor/commenter/viewer; приватность standalone-задач; исключение инициатора из Inbox; независимость архивации Inbox и Project; 30 дней восстановления; проект принадлежит одной команде, а членство в команде открывает team-видимые проекты.
 
 ## План discovery
 
@@ -477,7 +550,8 @@ flowchart LR
 2. **Workspace** → `docs/bc/02-workspace.md`
 3. **Work Execution** → `docs/bc/03-work-execution.md`
 4. **Work Organization** → `docs/bc/04-work-organization.md`
-5. **Notification** → `docs/bc/05-notification.md`
+5. **Collaboration** → `docs/bc/05-collaboration.md`
+6. **Notification** → `docs/bc/06-notification.md`
 
 Внутри каждой итерации: уточнение единого языка, бизнес-сценарии (EventStorming), агрегаты и их инварианты, domain services/политики, события (domain и integration), открытые вопросы и их решения. Итог каждой итерации фиксируется в своём файле; этот документ при расхождениях обновляется.
 

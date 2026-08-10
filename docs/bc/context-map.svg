@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c2410c"/>
+    </marker>
+  </defs>
+
+  <!-- Домен -->
+  <rect x="30" y="30" width="1140" height="840" rx="16" fill="#fffdf7" stroke="#333" stroke-width="3"/>
+  <text x="60" y="70" font-size="18" font-weight="bold" fill="#333">Домен: координация совместной работы компании</text>
+
+  <!-- Identity -->
+  <g>
+    <rect x="80" y="110" width="440" height="140" rx="8" fill="#eeeeee" stroke="#666" stroke-width="2"/>
+    <text x="300" y="150" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Identity (Generic)</text>
+    <text x="300" y="185" font-size="16" text-anchor="middle" fill="#111">Аккаунты,</text>
+    <text x="300" y="210" font-size="16" text-anchor="middle" fill="#111">аутентификация, сессии</text>
+  </g>
+
+  <!-- Workspace -->
+  <g>
+    <rect x="680" y="110" width="440" height="140" rx="8" fill="#dcecff" stroke="#4677a8" stroke-width="2"/>
+    <text x="900" y="150" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Workspace (Supporting)</text>
+    <text x="900" y="185" font-size="16" text-anchor="middle" fill="#111">Пространства,</text>
+    <text x="900" y="210" font-size="16" text-anchor="middle" fill="#111">участники, команды</text>
+  </g>
+
+  <!-- Core-поддомен: один поддомен «Координация работы», два BC -->
+  <rect x="60" y="368" width="1080" height="200" rx="12" fill="none" stroke="#b56813" stroke-width="2" stroke-dasharray="10 7"/>
+  <text x="590" y="390" font-size="15" font-weight="bold" text-anchor="middle" fill="#b56813">Core-поддомен: «Координация работы» — один поддомен, два BC</text>
+
+  <!-- Work Execution -->
+  <g>
+    <rect x="80" y="400" width="440" height="140" rx="8" fill="#ffd79a" stroke="#b56813" stroke-width="3"/>
+    <text x="300" y="440" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Work Execution</text>
+    <text x="300" y="475" font-size="16" text-anchor="middle" fill="#111">Задача, lifecycle,</text>
+    <text x="300" y="500" font-size="16" text-anchor="middle" fill="#111">участие, доступ к задаче</text>
+  </g>
+
+  <!-- Work Organization -->
+  <g>
+    <rect x="680" y="400" width="440" height="140" rx="8" fill="#ffd79a" stroke="#b56813" stroke-width="3"/>
+    <text x="900" y="440" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Work Organization</text>
+    <text x="900" y="475" font-size="16" text-anchor="middle" fill="#111">Проекты, размещения,</text>
+    <text x="900" y="500" font-size="16" text-anchor="middle" fill="#111">поля, проектный доступ</text>
+  </g>
+
+  <!-- Collaboration -->
+  <g>
+    <rect x="80" y="690" width="440" height="140" rx="8" fill="#dcecff" stroke="#4677a8" stroke-width="2"/>
+    <text x="300" y="730" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Collaboration (Supporting)</text>
+    <text x="300" y="765" font-size="16" text-anchor="middle" fill="#111">Комментарии, упоминания,</text>
+    <text x="300" y="790" font-size="16" text-anchor="middle" fill="#111">лайки, лента активности</text>
+  </g>
+
+  <!-- Notification -->
+  <g>
+    <rect x="680" y="690" width="440" height="140" rx="8" fill="#dcecff" stroke="#4677a8" stroke-width="2"/>
+    <text x="900" y="730" font-size="20" font-weight="bold" text-anchor="middle" fill="#111">Notification (Supporting)</text>
+    <text x="900" y="765" font-size="16" text-anchor="middle" fill="#111">Inbox и уведомления</text>
+  </g>
+
+  <!-- Identity → Workspace -->
+  <line x1="520" y1="180" x2="665" y2="180" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="592" y="140" font-size="13" text-anchor="middle" fill="#7c2d12">AccountRegistered</text>
+  <text x="592" y="158" font-size="13" text-anchor="middle" fill="#7c2d12">AccountBlocked / Unblocked</text>
+
+  <!-- Workspace → Work Execution -->
+  <line x1="300" y1="250" x2="300" y2="385" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="315" y="300" font-size="13" fill="#7c2d12">MemberJoined / RoleChanged</text>
+  <text x="315" y="318" font-size="13" fill="#7c2d12">Deactivated / Reactivated</text>
+
+  <!-- Workspace → Work Organization -->
+  <line x1="900" y1="250" x2="900" y2="385" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="885" y="300" font-size="13" text-anchor="end" fill="#7c2d12">MemberJoined / Deactivated</text>
+  <text x="885" y="318" font-size="13" text-anchor="end" fill="#7c2d12">TeamMemberAdded / Removed</text>
+
+  <!-- Work Execution → Work Organization -->
+  <line x1="520" y1="450" x2="665" y2="450" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="592" y="435" font-size="13" text-anchor="middle" fill="#7c2d12">TaskId + lifecycle-события</text>
+
+  <!-- Work Organization → Work Execution -->
+  <line x1="665" y1="500" x2="520" y2="500" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <text x="592" y="525" font-size="13" text-anchor="middle" fill="#7c2d12">факты размещений и членства</text>
+
+  <!-- Диагонали: Work Organization → Collaboration и Work Execution → Notification -->
+  <line x1="780" y1="540" x2="480" y2="675" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+  <line x1="430" y1="540" x2="730" y2="675" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Work Execution → Collaboration -->
+  <line x1="250" y1="540" x2="250" y2="675" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Collaboration → Work Execution -->
+  <line x1="350" y1="690" x2="350" y2="555" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Collaboration → Notification -->
+  <line x1="520" y1="760" x2="665" y2="760" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Work Organization → Notification -->
+  <line x1="940" y1="540" x2="940" y2="675" stroke="#c2410c" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Подписи нижних связей (поверх линий) -->
+  <text x="238" y="578" font-size="13" text-anchor="end" fill="#7c2d12">TaskId, lifecycle,</text>
+  <text x="238" y="596" font-size="13" text-anchor="end" fill="#7c2d12">TaskDeleted (каскад),</text>
+  <text x="238" y="614" font-size="13" text-anchor="end" fill="#7c2d12">вердикт доступа</text>
+
+  <text x="362" y="585" font-size="13" fill="#7c2d12">CommentAdded /</text>
+  <text x="362" y="603" font-size="13" fill="#7c2d12">UserMentioned</text>
+
+  <rect x="522" y="545" width="180" height="42" fill="#fffdf7"/>
+  <text x="612" y="562" font-size="13" text-anchor="middle" fill="#7c2d12">события размещений</text>
+  <text x="612" y="580" font-size="13" text-anchor="middle" fill="#7c2d12">и полей</text>
+
+  <rect x="545" y="632" width="150" height="40" fill="#fffdf7"/>
+  <text x="620" y="649" font-size="13" text-anchor="middle" fill="#7c2d12">события Task</text>
+  <text x="620" y="667" font-size="13" text-anchor="middle" fill="#7c2d12">и участия</text>
+
+  <text x="592" y="722" font-size="13" text-anchor="middle" fill="#7c2d12">CommentAdded / UserMentioned</text>
+  <text x="592" y="740" font-size="13" text-anchor="middle" fill="#7c2d12">LikeAdded</text>
+
+  <text x="952" y="585" font-size="13" fill="#7c2d12">события размещений</text>
+  <text x="952" y="603" font-size="13" fill="#7c2d12">и полей</text>
+</svg>

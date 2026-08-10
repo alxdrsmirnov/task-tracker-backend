@@ -17,6 +17,8 @@ Identity отвечает ровно на два вопроса: «этот че
 | --- | --- | --- |
 | `Account` | Глобальная учётная запись человека | Не WorkspaceMember; ничего не знает о пространствах |
 | `Email` | Канонический адрес аккаунта | Нормализуется (lower-case, trim) до сравнения |
+| `Name` | Отображаемое имя человека | Глобально, как в Asana; не копируется в Workspace |
+| `AvatarUrl` | Ссылка на аватар | Атрибут Account, а не membership |
 | `Credentials` | Способ доказать личность | Сейчас — только пароль; второй способ = отдельное решение |
 | `PasswordHash` | Хэш пароля | Пароль в открытом виде нигде не живёт |
 | `AccountStatus` | `active` \| `blocked` | Подтверждение email отложено, статус `pending` не вводим |
@@ -28,7 +30,7 @@ Identity отвечает ровно на два вопроса: «этот че
 ### Регистрация
 
 ```text
-Команда: RegisterAccount(email, password)
+Команда: RegisterAccount(email, password, name)
 → Проверка: email нормализован и уникален (set-based, через репозиторий)
 → Событие: AccountRegistered(accountId)
 ```
@@ -72,6 +74,17 @@ Rotation обязателен: иначе украденный токен жив
 
 Отзыв сессий — eventually consistent реакция на событие, а не синхронный обход коллекции: инварианта «ноль активных сессий в той же транзакции» нет, окно в секунды приемлемо.
 
+### Разблокировка аккаунта
+
+```text
+Команда: UnblockAccount(accountId)
+→ Проверка: Account в статусе blocked
+→ AccountStatus = active
+→ Событие: AccountUnblocked(accountId)
+```
+
+Симметричен блокировке. Downstream (Workspace) решает сам, что восстанавливать, — и реактивирует только те membership, которые деактивировал по блокировке, а не вручную (см. `02-workspace.md`, причина деактивации). Сессии не восстанавливаются: вход заново через SignIn.
+
 ### Смена пароля
 
 ```text
@@ -85,7 +98,7 @@ Rotation обязателен: иначе украденный токен жив
 
 | Агрегат | Граница согласованности | Почему отдельный |
 | --- | --- | --- |
-| `Account` | Идентичность, Email, PasswordHash, AccountStatus меняются согласованно | Владелец инвариантов «кто ты» |
+| `Account` | Идентичность, Email, Name, AvatarUrl, PasswordHash, AccountStatus меняются согласованно | Владелец инвариантов «кто ты» |
 | `Session` | Создание, продление, отзыв одной сессии атомарны | См. ниже |
 
 ### Почему Session — не коллекция внутри Account
@@ -108,19 +121,22 @@ Rotation обязателен: иначе украденный токен жив
 
 ## Value Objects
 
-`AccountId`, `Email`, `PasswordHash`, `AccountStatus`, `SessionId`, `RefreshTokenHash`, `ExpiresAt`.
+`AccountId`, `Email`, `Name`, `AvatarUrl`, `PasswordHash`, `AccountStatus`, `SessionId`, `RefreshTokenHash`, `ExpiresAt`.
 
-## Сервисы и порты
+## Доменные сервисы
 
-- `PasswordHasher` — порт; реализация (bcrypt/argon2) — инфраструктура, в домен не просачивается.
-- `TokenGenerator` — порт; выпуск access/refresh пар — инфраструктура.
-- Доменных сервисов нет: всё поведение помещается в методы агрегатов и две политики на события.
+Осознанно без портов/интерфейсов «ради интерфейсов»: это конкретные доменные сервисы, которые напрямую инжектятся в app-сервисы / use case'ы (терминология application-слоя будет зафиксирована отдельно).
+
+- `PasswordHasher` — хэширование и сверка пароля (bcrypt/argon2 — деталь реализации класса).
+- `TokenGenerator` — выпуск access/refresh пары токенов.
+
+Остальное поведение помещается в методы агрегатов и две политики на события (блокировка → отзыв сессий; смена пароля → отзыв сессий).
 
 ## События
 
 ### Domain events (внутри BC)
 
-`AccountRegistered`, `AccountBlocked`, `PasswordChanged`, `SessionCreated`, `SessionRefreshed`, `SessionRevoked`.
+`AccountRegistered`, `AccountBlocked`, `AccountUnblocked`, `PasswordChanged`, `SessionCreated`, `SessionRefreshed`, `SessionRevoked`.
 
 ### Integration events (published language наружу)
 
@@ -128,9 +144,10 @@ Rotation обязателен: иначе украденный токен жив
 | --- | --- | --- |
 | `AccountRegistered` | `accountId` | Workspace (политика персонального Workspace) |
 | `AccountBlocked` | `accountId` | Workspace (деактивация membership — его решение) |
+| `AccountUnblocked` | `accountId` | Workspace (реактивация membership, снятых по блокировке) |
 | `PasswordChanged` | `accountId` | пока нет потребителей, публикуем для аудита в будущем |
 
-Принцип минимальности payload: наружу выходит `AccountId` и факт события. Email, display name и прочее не публикуем — если downstream понадобятся атрибуты, это отдельное решение (фасад `getAccountSnapshot` или расширение события).
+Принцип минимальности payload: наружу выходит `AccountId` и факт события. Email, name и прочее не публикуем — если downstream понадобятся атрибуты, это отдельное решение (фасад `getAccountSnapshot` или расширение события).
 
 ## Открытые вопросы и предложенные решения
 
@@ -139,7 +156,7 @@ Rotation обязателен: иначе украденный токен жив
 | Подтверждение email | Отложено: нет канала доставки писем в охвате; статус `pending` не вводим, чтобы не тащить полпроцесса | Отложено |
 | Восстановление пароля | Отложено по той же причине (нужна email-доставка) | Отложено |
 | OAuth / social login | Вне охвата; появление второго способа входа превратит `Credential` в Entity — модель к этому готова | Anti-scope сейчас |
-| Где живёт display name / аватар | Предложение: атрибуты Account (имя глобально у человека, как в Asana) | Требует подтверждения |
+| Где живёт name / аватар | Атрибуты Account (`Name`, `AvatarUrl`): имя глобально у человека, как в Asana | Решено |
 | Детект угона refresh token (reuse detection → отзыв всех сессий) | Отложено; повторное использование просто отклоняется | Отложено |
 | Сроки жизни токенов | Конфигурация deployment, не доменное правило | Решено |
 | Что происходит с данными при блокировке | Решение downstream-контекстов (Workspace реагирует на `AccountBlocked`) | Решено границей |
