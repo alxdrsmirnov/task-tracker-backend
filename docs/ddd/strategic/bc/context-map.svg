@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900" role="img" aria-labelledby="title description">
+  <title id="title">Context Map трекера задач</title>
+  <desc id="description">Пять ограниченных контекстов и направленные отношения Upstream к Downstream.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c2410c" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#111827" flood-opacity="0.14" />
+    </filter>
+    <style>
+      .canvas { fill: #fffdf7; }
+      .domain { fill: #fffdf7; stroke: #333333; stroke-width: 3; }
+      .node { filter: url(#shadow); }
+      .core { fill: #ffd79a; stroke: #b56813; stroke-width: 3; }
+      .supporting { fill: #dcecff; stroke: #4677a8; stroke-width: 2.5; }
+      .generic { fill: #eeeeee; stroke: #666666; stroke-width: 2.5; }
+      .title { font: 700 25px Inter, Arial, sans-serif; fill: #111111; }
+      .domain-title { font: 700 24px Inter, Arial, sans-serif; fill: #242424; }
+      .class { font: 700 16px Inter, Arial, sans-serif; fill: #4b5563; letter-spacing: 0.5px; }
+      .detail { font: 400 17px Inter, Arial, sans-serif; fill: #252525; }
+      .edge { fill: none; stroke: #c2410c; stroke-width: 4; marker-end: url(#arrow); }
+      .edge-label { font: 600 15px Inter, Arial, sans-serif; fill: #7c2d12; text-anchor: middle; }
+      .label-bg { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1; rx: 8; }
+      .legend { font: 500 15px Inter, Arial, sans-serif; fill: #343434; }
+    </style>
+  </defs>
+
+  <rect class="canvas" width="1280" height="900" />
+  <rect class="domain" x="30" y="30" width="1220" height="830" rx="14" />
+  <text class="domain-title" x="640" y="72" text-anchor="middle">Домен: координация совместной работы организации</text>
+
+  <g class="node">
+    <rect class="generic" x="110" y="120" width="330" height="140" rx="14" />
+    <text class="title" x="275" y="164" text-anchor="middle">Identity</text>
+    <text class="class" x="275" y="194" text-anchor="middle">GENERIC</text>
+    <text class="detail" x="275" y="226" text-anchor="middle">Account и личный доступ</text>
+  </g>
+
+  <g class="node">
+    <rect class="supporting" x="840" y="120" width="330" height="140" rx="14" />
+    <text class="title" x="1005" y="164" text-anchor="middle">Workspace</text>
+    <text class="class" x="1005" y="194" text-anchor="middle">SUPPORTING</text>
+    <text class="detail" x="1005" y="226" text-anchor="middle">Участники и Teams</text>
+  </g>
+
+  <g class="node">
+    <rect class="core" x="430" y="345" width="420" height="170" rx="14" />
+    <text class="title" x="640" y="394" text-anchor="middle">Work Management</text>
+    <text class="class" x="640" y="426" text-anchor="middle">CORE</text>
+    <text class="detail" x="640" y="459" text-anchor="middle">Tasks, Projects и процессы</text>
+    <text class="detail" x="640" y="486" text-anchor="middle">Единая работа без копий</text>
+  </g>
+
+  <g class="node">
+    <rect class="supporting" x="110" y="620" width="330" height="150" rx="14" />
+    <text class="title" x="275" y="666" text-anchor="middle">Notifications</text>
+    <text class="class" x="275" y="697" text-anchor="middle">SUPPORTING</text>
+    <text class="detail" x="275" y="731" text-anchor="middle">Inbox и доставка</text>
+  </g>
+
+  <g class="node">
+    <rect class="supporting" x="840" y="620" width="330" height="150" rx="14" />
+    <text class="title" x="1005" y="666" text-anchor="middle">Work Discovery</text>
+    <text class="class" x="1005" y="697" text-anchor="middle">SUPPORTING</text>
+    <text class="detail" x="1005" y="731" text-anchor="middle">Поиск и сводки</text>
+  </g>
+
+  <path class="edge" d="M 440 190 L 840 190" />
+  <g>
+    <rect class="label-bg" x="538" y="141" width="204" height="36" />
+    <text class="edge-label" x="640" y="165">AccountRef · CF/PL</text>
+  </g>
+
+  <path class="edge" d="M 1005 260 L 1005 305 L 640 305 L 640 345" />
+  <g>
+    <rect class="label-bg" x="727" y="268" width="222" height="36" />
+    <text class="edge-label" x="838" y="292">Membership · Team · C/S</text>
+  </g>
+
+  <path class="edge" d="M 535 515 L 535 565 L 275 565 L 275 620" />
+  <g>
+    <rect class="label-bg" x="285" y="527" width="220" height="36" />
+    <text class="edge-label" x="395" y="551">События работы · PL</text>
+  </g>
+
+  <path class="edge" d="M 745 515 L 745 565 L 900 565 L 900 620" />
+  <g>
+    <rect class="label-bg" x="740" y="527" width="225" height="36" />
+    <text class="edge-label" x="852" y="551">Факты и видимость · PL</text>
+  </g>
+
+  <path class="edge" d="M 1075 260 L 1075 620" />
+  <g>
+    <rect class="label-bg" x="1089" y="386" width="138" height="66" />
+    <text class="edge-label" x="1158" y="410">
+      <tspan x="1158" dy="0">Участники</tspan>
+      <tspan x="1158" dy="21">и Teams · PL</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(115, 815)">
+    <rect class="core" x="0" y="-14" width="24" height="18" rx="3" />
+    <text class="legend" x="34" y="1">Core</text>
+    <rect class="supporting" x="105" y="-14" width="24" height="18" rx="3" />
+    <text class="legend" x="139" y="1">Supporting</text>
+    <rect class="generic" x="255" y="-14" width="24" height="18" rx="3" />
+    <text class="legend" x="289" y="1">Generic</text>
+    <path class="edge" d="M 425 -5 L 505 -5" />
+    <text class="legend" x="525" y="1">Upstream → Downstream</text>
+  </g>
+</svg>
